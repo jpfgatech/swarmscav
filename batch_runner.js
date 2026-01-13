@@ -25,13 +25,18 @@ const PORT = 5173;
 const BASE_URL = `http://localhost:${PORT}`;
 const OUTPUT_DIR = path.join(__dirname, 'output');
 const ERROR_LOG = path.join(__dirname, 'error_log.txt');
-const CAPTURE_DURATION = 5000; // 5 seconds
+const CAPTURE_DURATION = 5000; // 5 seconds (for batch mode)
+const SINGLE_SIM_DURATION = 30000; // 30 seconds (for single simulation mode)
 const FRAME_RATE = 30;
 const FRAME_INTERVAL = 1000 / FRAME_RATE;
 const TOTAL_FRAMES = Math.floor((CAPTURE_DURATION / 1000) * FRAME_RATE);
-const WARMUP_TIME = 10000; // 10 seconds warmup (skip first 10 seconds)
+const SINGLE_SIM_FRAMES = Math.floor((SINGLE_SIM_DURATION / 1000) * FRAME_RATE);
+const WARMUP_TIME = 10000; // 10 seconds warmup (skip first 10 seconds) - for batch mode only
 // GIF delay in centiseconds (hundredths of a second) - omggif expects this format
 const GIF_DELAY = Math.round(FRAME_INTERVAL / 10); // Convert ms to centiseconds
+// Canvas dimensions (must match main.js)
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 600;
 const BROWSER_RECYCLE_INTERVAL = 50; // Recycle browser every N runs
 
 // Fixed constants
@@ -96,16 +101,13 @@ function formatParam(value) {
 
 /**
  * Generate filename for a parameter combination
- * Format: swarms_J[val]_K[val]_M[val]_W[val]_R[val].gif
+ * Format: swarms_J[val]_K[val].gif
  */
 function generateFilename(job) {
     const jStr = formatParam(job.J).replace(/\./g, 'p').replace(/-/g, 'm');
     const kStr = formatParam(job.K).replace(/\./g, 'p').replace(/-/g, 'm');
-    const mStr = formatParam(job.MU).replace(/\./g, 'p');
-    const wStr = formatParam(job.K_WELL).replace(/\./g, 'p');
-    const rStr = formatParam(job.REP).replace(/\./g, 'p');
     
-    return `swarms_J${jStr}_K${kStr}_M${mStr}_W${wStr}_R${rStr}.gif`;
+    return `swarms_J${jStr}_K${kStr}.gif`;
 }
 
 /**
@@ -113,7 +115,7 @@ function generateFilename(job) {
  */
 function logError(job, error) {
     const timestamp = new Date().toISOString();
-    const message = `[${timestamp}] J=${job.J}, K=${job.K}, MU=${job.MU}, K_WELL=${job.K_WELL}, REP=${job.REP}\n`;
+    const message = `[${timestamp}] J=${job.J}, K=${job.K}\n`;
     const errorMsg = `  Error: ${error.message}\n  Stack: ${error.stack}\n\n`;
     
     fs.appendFileSync(ERROR_LOG, message + errorMsg);
@@ -131,15 +133,15 @@ function ensureOutputDir() {
 
 /**
  * Captures frames from the simulation and encodes them into a GIF
+ * @param {Object} page - Puppeteer page object
+ * @param {Object} job - Job parameters {J, K}
+ * @param {boolean} isSingleSim - If true, capture 30s from start; if false, 5s after 10s warmup
  */
-async function captureSimulation(page, job) {
-    // Build URL with all 5 parameters
+async function captureSimulation(page, job, isSingleSim = false) {
+    // Build URL with J and K parameters only
     const params = new URLSearchParams({
         J: job.J.toString(),
         K: job.K.toString(),
-        MU: job.MU.toString(),
-        K_WELL: job.K_WELL.toString(),
-        REP: job.REP.toString(),
         N: FIXED_N.toString()
     });
     const url = `${BASE_URL}?${params.toString()}`;
@@ -148,8 +150,11 @@ async function captureSimulation(page, job) {
     await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
     await page.waitForSelector('#canvas', { timeout: 10000 });
     
-    // Warmup period
-    await page.waitForTimeout(WARMUP_TIME);
+    // For single simulation mode: start from beginning (no warmup)
+    // For batch mode: warmup period to skip initial transient
+    if (!isSingleSim) {
+        await page.waitForTimeout(WARMUP_TIME);
+    }
     
     // Prepare GIF encoder
     const filename = generateFilename(job);
@@ -161,10 +166,24 @@ async function captureSimulation(page, job) {
         return { success: true, filepath, skipped: true };
     }
     
+    // Determine frame count based on mode
+    const frameCount = isSingleSim ? SINGLE_SIM_FRAMES : TOTAL_FRAMES;
+    
+    if (isSingleSim) {
+        console.log(`  Capturing ${frameCount} frames (${SINGLE_SIM_DURATION}ms from start)`);
+    }
+    
     // Collect all frames first
     const frames = [];
+    const progressInterval = Math.max(1, Math.floor(frameCount / 10)); // Log every 10%
     
-    for (let i = 0; i < TOTAL_FRAMES; i++) {
+    for (let i = 0; i < frameCount; i++) {
+        // Log progress for long captures
+        if (frameCount > 100 && (i % progressInterval === 0 || i === frameCount - 1)) {
+            const percent = Math.round((i + 1) / frameCount * 100);
+            process.stdout.write(`\r  Progress: ${i + 1}/${frameCount} frames (${percent}%)`);
+        }
+        
         // Capture canvas as image
         const imageData = await page.evaluate(() => {
             const canvas = document.getElementById('canvas');
@@ -179,7 +198,7 @@ async function captureSimulation(page, job) {
         const image = await Jimp.read(buffer);
         
         // Convert to RGB array (omggif needs RGB, not RGBA)
-        const rgbData = new Uint8Array(800 * 600 * 3);
+        const rgbData = new Uint8Array(CANVAS_WIDTH * CANVAS_HEIGHT * 3);
         let idx = 0;
         image.scan(0, 0, image.bitmap.width, image.bitmap.height, function (x, y, imgIdx) {
             rgbData[idx++] = this.bitmap.data[imgIdx];     // R
@@ -193,6 +212,12 @@ async function captureSimulation(page, job) {
         // Wait for next frame
         await page.waitForTimeout(FRAME_INTERVAL);
     }
+    
+    if (frameCount > 100) {
+        process.stdout.write('\n'); // New line after progress
+    }
+    
+    console.log(`  Collected ${frames.length} frames, encoding GIF...`);
     
     // Encode all frames to GIF using omggif with palette generation
     // Generate palette from first frame using quantize
@@ -235,8 +260,8 @@ async function captureSimulation(page, job) {
     }
     
     // Create GIF with global palette
-    const gifBuffer = Buffer.alloc(800 * 600 * frames.length * 3 + 10000); // Extra space for headers
-    const gif = new GifWriter(gifBuffer, 800, 600, { 
+    const gifBuffer = Buffer.alloc(CANVAS_WIDTH * CANVAS_HEIGHT * frames.length * 3 + 10000); // Extra space for headers
+    const gif = new GifWriter(gifBuffer, CANVAS_WIDTH, CANVAS_HEIGHT, { 
         loop: 0,
         palette: palette
     });
@@ -244,9 +269,9 @@ async function captureSimulation(page, job) {
     // Convert RGB frames to indexed color frames
     for (let i = 0; i < frames.length; i++) {
         const rgbData = frames[i];
-        const indexedPixels = new Uint8Array(800 * 600);
+        const indexedPixels = new Uint8Array(CANVAS_WIDTH * CANVAS_HEIGHT);
         
-        for (let j = 0; j < 800 * 600; j++) {
+        for (let j = 0; j < CANVAS_WIDTH * CANVAS_HEIGHT; j++) {
             const r = rgbData[j * 3];
             const g = rgbData[j * 3 + 1];
             const b = rgbData[j * 3 + 2];
@@ -268,7 +293,7 @@ async function captureSimulation(page, job) {
             indexedPixels[j] = bestIdx;
         }
         
-        gif.addFrame(0, 0, 800, 600, indexedPixels, { delay: GIF_DELAY });
+        gif.addFrame(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT, indexedPixels, { delay: GIF_DELAY });
     }
     
     // Write the GIF file
@@ -285,18 +310,83 @@ async function runBatch() {
     // Parse command line arguments
     const args = process.argv.slice(2);
     let randomCount = null;
+    let specificJ = null;
+    let specificK = null;
     
+    // Parse command-line arguments
+    // Note: npm strips arguments starting with '-', so use: npm run batch -- 2.0 -1.0
+    // Or use flags: npm run batch -- --j=2.0 --k=-1.0
     if (args.length > 0) {
-        const countArg = args.find(arg => arg.startsWith('--count=') || arg.startsWith('-n='));
-        if (countArg) {
-            randomCount = parseInt(countArg.split('=')[1], 10);
-            if (isNaN(randomCount) || randomCount < 1) {
-                console.error('Error: --count must be a positive integer');
+        // Check for --j and --k flags first
+        const jArg = args.find(arg => arg.startsWith('--j=') || arg.startsWith('-j='));
+        const kArg = args.find(arg => arg.startsWith('--k=') || arg.startsWith('-k='));
+        
+        if (jArg || kArg) {
+            // Using flag syntax
+            if (jArg) {
+                specificJ = parseFloat(jArg.split('=')[1]);
+                if (isNaN(specificJ)) {
+                    console.error('Error: --j must be a valid number');
+                    process.exit(1);
+                }
+            }
+            
+            if (kArg) {
+                specificK = parseFloat(kArg.split('=')[1]);
+                if (isNaN(specificK)) {
+                    console.error('Error: --k must be a valid number');
+                    process.exit(1);
+                }
+            }
+            
+            if ((jArg && !kArg) || (!jArg && kArg)) {
+                console.error('Error: Both --j and --k must be specified together');
                 process.exit(1);
             }
-        } else if (!isNaN(parseInt(args[0], 10))) {
-            // Allow simple number as first argument
-            randomCount = parseInt(args[0], 10);
+        } else if (args.length >= 2) {
+            // Try parsing as two numbers (J and K)
+            const jVal = parseFloat(args[0]);
+            const kVal = parseFloat(args[1]);
+            
+            // Check if both are valid numbers (including negative)
+            // If first arg is a float (has decimal) OR second arg exists and is a number, treat as J/K
+            const firstIsFloat = args[0].includes('.') || isNaN(parseInt(args[0], 10));
+            const secondIsNumber = !isNaN(kVal);
+            
+            if (firstIsFloat && secondIsNumber) {
+                specificJ = jVal;
+                specificK = kVal;
+            } else {
+                // Fall back to random count if first arg is an integer
+                const countArg = args.find(arg => arg.startsWith('--count=') || arg.startsWith('-n='));
+                if (countArg) {
+                    randomCount = parseInt(countArg.split('=')[1], 10);
+                    if (isNaN(randomCount) || randomCount < 1) {
+                        console.error('Error: --count must be a positive integer');
+                        process.exit(1);
+                    }
+                } else if (!isNaN(parseInt(args[0], 10)) && isNaN(parseFloat(args[0]))) {
+                    // Only if it's a pure integer (not a float)
+                    randomCount = parseInt(args[0], 10);
+                }
+            }
+        } else if (args.length === 1) {
+            // Single argument - check if it's a float (J value) or integer (count)
+            const val = parseFloat(args[0]);
+            const intVal = parseInt(args[0], 10);
+            
+            if (!isNaN(val) && args[0].includes('.')) {
+                // It's a float - could be J, but we need K too
+                // This likely means npm stripped the second argument (negative number)
+                console.error('\n⚠️  Error: Both J and K must be specified.');
+                console.error('⚠️  npm strips arguments starting with "-", so use "--" to pass them through:');
+                console.error('   npm run batch -- 2.0 -1.0');
+                console.error('   OR: npm run batch -- --j=2.0 --k=-1.0\n');
+                process.exit(1);
+            } else if (!isNaN(intVal) && val === intVal) {
+                // It's a pure integer - treat as count
+                randomCount = intVal;
+            }
         }
     }
     
@@ -305,27 +395,40 @@ async function runBatch() {
     console.log('='.repeat(60));
     
     // Generate job manifest
-    let jobs = generateJobManifest();
-    const totalPossibleJobs = jobs.length;
+    let jobs = [];
+    const isSingleSim = specificJ !== null && specificK !== null;
     
-    // Apply random selection if requested
-    if (randomCount !== null) {
-        console.log(`\nRandom Selection Mode: ${randomCount} simulations`);
-        jobs = getRandomJobs(jobs, randomCount);
-        console.log(`Selected ${jobs.length} random combinations from ${totalPossibleJobs} total`);
+    if (isSingleSim) {
+        // Single job with specified J and K
+        jobs = [{ J: specificJ, K: specificK }];
+        console.log(`\nSingle Simulation Mode: J=${specificJ}, K=${specificK}`);
+        console.log(`  Duration: ${SINGLE_SIM_DURATION}ms (${SINGLE_SIM_FRAMES} frames @ ${FRAME_RATE} FPS) - from start`);
+        console.log(`  isSingleSim flag: ${isSingleSim}`);
+    } else {
+        // Generate full job manifest
+        jobs = generateJobManifest();
+        const totalPossibleJobs = jobs.length;
+        
+        // Apply random selection if requested
+        if (randomCount !== null) {
+            console.log(`\nRandom Selection Mode: ${randomCount} simulations`);
+            jobs = getRandomJobs(jobs, randomCount);
+            console.log(`Selected ${jobs.length} random combinations from ${totalPossibleJobs} total`);
+        }
     }
     
     const totalJobs = jobs.length;
     
-    if (randomCount === null) {
+    if (specificJ !== null && specificK !== null) {
+        console.log(`Running single simulation with specified parameters`);
+    } else if (randomCount === null) {
         console.log(`Total Simulations: ${totalJobs.toLocaleString()}`);
-        console.log(`  J: ${J_VALUES.length} values`);
-        console.log(`  K: ${K_VALUES.length} values`);
-        console.log(`  MU: ${MU_VALUES.length} values`);
-        console.log(`  K_WELL: ${K_WELL_VALUES.length} values`);
-        console.log(`  REP: ${REP_VALUES.length} values`);
+        console.log(`  J: ${J_VALUES.length} values (${J_VALUES[0]} to ${J_VALUES[J_VALUES.length - 1]})`);
+        console.log(`  K: ${K_VALUES.length} values (${K_VALUES[0]} to ${K_VALUES[K_VALUES.length - 1]})`);
+        console.log(`  = ${J_VALUES.length} × ${K_VALUES.length}`);
     } else {
         console.log(`Running ${totalJobs} randomly selected simulations`);
+        const totalPossibleJobs = generateJobManifest().length;
         console.log(`(from ${totalPossibleJobs.toLocaleString()} total possible combinations)`);
     }
     console.log(`Output Directory: ${OUTPUT_DIR}`);
@@ -362,13 +465,13 @@ async function runBatch() {
                     args: ['--no-sandbox', '--disable-setuid-sandbox']
                 });
                 page = await browser.newPage();
-                await page.setViewport({ width: 800, height: 600 });
+                await page.setViewport({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
             }
             
-            console.log(`\n${progress} J=${job.J}, K=${job.K}, MU=${job.MU}, K_WELL=${job.K_WELL}, REP=${job.REP}`);
+            console.log(`\n${progress} J=${job.J}, K=${job.K}`);
             
             try {
-                const result = await captureSimulation(page, job);
+                const result = await captureSimulation(page, job, isSingleSim);
                 results.push({ ...job, ...result });
                 
                 if (!result.skipped) {

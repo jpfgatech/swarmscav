@@ -5,19 +5,17 @@ export class Agent {
     /**
      * @param {number} canvasWidth - Width of the canvas
      * @param {number} canvasHeight - Height of the canvas
-     * @param {number} speed - Fixed speed magnitude for all agents
      * @param {number} baseOmega - Common base intrinsic frequency
      * @param {number} omegaVariation - Random variation range for omega
      */
-    constructor(canvasWidth, canvasHeight, speed, baseOmega, omegaVariation) {
+    constructor(canvasWidth, canvasHeight, baseOmega, omegaVariation) {
         // Spatial state: random position within canvas bounds
         this.x = Math.random() * canvasWidth;
         this.y = Math.random() * canvasHeight;
         
-        // Velocity state: random direction with fixed speed magnitude
-        const phi = Math.random() * 2 * Math.PI; // Random angle [0, 2π]
-        this.vx = speed * Math.cos(phi);
-        this.vy = speed * Math.sin(phi);
+        // Velocity state: initialized to zero (overdamped model: velocity = force)
+        this.vx = 0;
+        this.vy = 0;
         
         // Phase state: random initial phase and natural frequency
         this.theta = Math.random() * 2 * Math.PI; // Phase [0, 2π]
@@ -67,14 +65,13 @@ export class Agent {
     
     /**
      * Updates position using overdamped dynamics (Aristotelian motion)
-     * Reference implementation: velocity = force directly (no momentum/inertia)
+     * Reference: velocity = force directly (no momentum/inertia)
      * Also updates phase based on phase derivative
      * @param {number} deltaTime - Time step for integration
-     * @param {number} damping - NOT USED (kept for API compatibility, overdamped has no damping)
      * @param {number} canvasWidth - Width of the canvas
      * @param {number} canvasHeight - Height of the canvas
      */
-    update(deltaTime, damping, canvasWidth, canvasHeight) {
+    update(deltaTime, canvasWidth, canvasHeight) {
         // Overdamped dynamics: velocity = force (no accumulation, no momentum)
         // This is Aristotelian motion, not Newtonian
         // The system naturally stops when forces balance (no need for damping)
@@ -127,7 +124,7 @@ export class Agent {
      * @param {CanvasRenderingContext2D} ctx - 2D rendering context
      */
     draw(ctx) {
-        // Draw the agent body as a filled circle
+        // Draw the agent body as a filled circle (proportional to canvas size)
         ctx.fillStyle = this.color;
         ctx.beginPath();
         ctx.arc(this.x, this.y, 4, 0, 2 * Math.PI);

@@ -1,16 +1,12 @@
 import { Agent } from './Agent.js';
 import {
     N,
-    SPEED,
     BASE_OMEGA,
     OMEGA_VARIATION,
     J,
     K,
-    K_WELL,
     REPULSION_STRENGTH,
     EPSILON,
-    CUTOFF_RADIUS,
-    MU,
     TIME_SCALE
 } from './config.js';
 
@@ -29,7 +25,7 @@ function setupCanvas() {
         throw new Error('Could not get 2D rendering context');
     }
     
-    // Set canvas size (restored to original, agents will be spaced further apart)
+    // Set canvas size (restored to 800x600 for better resolution)
     canvas.width = 800;
     canvas.height = 600;
     console.log('Canvas initialized:', canvas.width, 'x', canvas.height);
@@ -43,20 +39,61 @@ const swarm = [];
 
 // Timing for frame-rate independent physics
 let lastTime = 0;
-const TARGET_FPS = 60;
+const TARGET_FPS = 30; // Match capture frame rate for consistency
 const DELTA_TIME_CAP = 1 / 30; // Cap deltaTime to prevent large jumps
+const FRAME_INTERVAL_MS = 1000 / TARGET_FPS; // ~33.33ms for 30 FPS
 
 /**
  * Initializes the swarm with N agents
+ * Centers the swarm by removing mean position and velocity
  */
 function initialize() {
     swarm.length = 0; // Clear existing agents
     
+    // Create agents
     for (let i = 0; i < N; i++) {
-        swarm.push(new Agent(canvas.width, canvas.height, SPEED, BASE_OMEGA, OMEGA_VARIATION));
+        swarm.push(new Agent(canvas.width, canvas.height, BASE_OMEGA, OMEGA_VARIATION));
     }
     
-    console.log(`Initialized ${swarm.length} agents`);
+    // Calculate and subtract center of mass (position)
+    let sumX = 0, sumY = 0;
+    for (const agent of swarm) {
+        sumX += agent.x;
+        sumY += agent.y;
+    }
+    const centerX = sumX / N;
+    const centerY = sumY / N;
+    
+    // Shift all positions to center at origin
+    for (const agent of swarm) {
+        agent.x -= centerX;
+        agent.y -= centerY;
+    }
+    
+    // Calculate and subtract mean velocity
+    let sumVx = 0, sumVy = 0;
+    for (const agent of swarm) {
+        sumVx += agent.vx;
+        sumVy += agent.vy;
+    }
+    const meanVx = sumVx / N;
+    const meanVy = sumVy / N;
+    
+    // Shift all velocities to remove mean
+    for (const agent of swarm) {
+        agent.vx -= meanVx;
+        agent.vy -= meanVy;
+    }
+    
+    // Re-center positions to canvas center
+    const canvasCenterX = canvas.width / 2;
+    const canvasCenterY = canvas.height / 2;
+    for (const agent of swarm) {
+        agent.x += canvasCenterX;
+        agent.y += canvasCenterY;
+    }
+    
+    console.log(`Initialized ${swarm.length} agents (centered)`);
 }
 
 /**
@@ -73,46 +110,24 @@ function clear() {
 }
 
 /**
- * Calculates and applies the harmonic potential well force (confinement)
- * @param {Agent} agent - The agent to apply the force to
- * @param {number} centerX - X coordinate of the center
- * @param {number} centerY - Y coordinate of the center
- */
-function applyWellForce(agent, centerX, centerY) {
-    // Calculate displacement from center
-    const dx = agent.x - centerX;
-    const dy = agent.y - centerY;
-    
-    // Harmonic potential: F = -k * (r - r_center)
-    const fx = -K_WELL * dx;
-    const fy = -K_WELL * dy;
-    
-    agent.addForce(fx, fy);
-}
-
-/**
  * Calculates and applies repulsion forces between agents
  * Reference: F_rep = (r_i - r_j) / (|r_i - r_j|^2 + epsilon) / N
  * @param {Agent} agent1 - First agent
  * @param {Agent} agent2 - Second agent
+ * @param {number} dx - X component of distance vector (agent1 - agent2)
+ * @param {number} dy - Y component of distance vector (agent1 - agent2)
+ * @param {number} distanceSquared - Squared distance (dx² + dy²)
  */
-function applyRepulsionForce(agent1, agent2) {
-    // Calculate distance vector (from agent2 to agent1)
-    const dx = agent1.x - agent2.x;
-    const dy = agent1.y - agent2.y;
-    const distanceSquared = dx * dx + dy * dy;
-    const distance = Math.sqrt(distanceSquared);
-    
-    // Skip if too close (numerical stability)
-    if (distance < 0.001) {
-        return;
-    }
-    
+function applyRepulsionForce(agent1, agent2, dx, dy, distanceSquared) {
     // Soft core repulsion: F = (r_i - r_j) / (|r_i - r_j|^2 + epsilon) / N
     // The /N scaling is critical to prevent force explosion with large populations
-    const forceMagnitude = REPULSION_STRENGTH / (distanceSquared + EPSILON) / N;
-    const fx = (dx / distance) * forceMagnitude;
-    const fy = (dy / distance) * forceMagnitude;
+    const invDistanceSqPlusEpsilon = 1.0 / (distanceSquared + EPSILON);
+    const forceMagnitude = REPULSION_STRENGTH * invDistanceSqPlusEpsilon / N;
+    
+    // Normalize direction using distanceSquared to avoid sqrt
+    const invDistance = 1.0 / Math.sqrt(distanceSquared);
+    const fx = dx * invDistance * forceMagnitude;
+    const fy = dy * invDistance * forceMagnitude;
     
     // Apply force (symmetric, Newton's third law)
     agent1.addForce(fx, fy);
@@ -126,25 +141,15 @@ function applyRepulsionForce(agent1, agent2) {
  * @param {Agent} agent1 - First agent
  * @param {Agent} agent2 - Second agent
  */
-function applyPhaseBasedSpatialCoupling(agent1, agent2) {
-    // Calculate distance vector (from agent1 to agent2)
-    const dx = agent2.x - agent1.x;
-    const dy = agent2.y - agent1.y;
-    const distanceSquared = dx * dx + dy * dy;
-    const distance = Math.sqrt(distanceSquared);
-    
-    // Skip if too close (numerical stability)
-    if (distance < 0.001) {
-        return;
-    }
-    
+function applyPhaseBasedSpatialCoupling(agent1, agent2, dx, dy, distance) {
     // Phase difference
     const phaseDiff = agent2.theta - agent1.theta;
     
     // Attraction: (1 + J*cos(θ_j - θ_i)) * unit_vector / N
     // Unit vector direction (infinite range - strength independent of distance)
-    const unitX = dx / distance;
-    const unitY = dy / distance;
+    const invDistance = 1.0 / distance;
+    const unitX = dx * invDistance;
+    const unitY = dy * invDistance;
     
     // Coupling strength: (1 + J*cos(phaseDiff)) / N
     // The "1" provides constant global attraction (self-confinement)
@@ -164,14 +169,9 @@ function applyPhaseBasedSpatialCoupling(agent1, agent2) {
  * Reference: dθ/dt += K * sin(θ_j - θ_i) / |r_j - r_i| / N
  * @param {Agent} agent1 - First agent
  * @param {Agent} agent2 - Second agent
+ * @param {number} distance - Pre-calculated distance (to avoid redundant sqrt)
  */
-function applyPhaseCoupling(agent1, agent2) {
-    // Calculate distance
-    const dx = agent1.x - agent2.x;
-    const dy = agent1.y - agent2.y;
-    const distanceSquared = dx * dx + dy * dy;
-    const distance = Math.sqrt(distanceSquared);
-    
+function applyPhaseCoupling(agent1, agent2, distance) {
     // Skip if too close (numerical stability)
     if (distance < 0.001) {
         return;
@@ -182,7 +182,8 @@ function applyPhaseCoupling(agent1, agent2) {
     
     // Phase coupling: K * sin(θ_j - θ_i) / |r_j - r_i| / N
     // The /N scaling is critical to prevent phase derivative explosion
-    const phaseCoupling = K * Math.sin(phaseDiff) / distance / N;
+    const invDistance = 1.0 / distance;
+    const phaseCoupling = K * Math.sin(phaseDiff) * invDistance / N;
     
     // Apply phase derivative (symmetric)
     agent1.addPhaseDerivative(phaseCoupling);
@@ -204,37 +205,57 @@ function updatePhysics(deltaTime) {
         agent.dtheta_dt = agent.omega; // Start with natural frequency
     }
     
-    // Well force disabled (K_WELL = 0) - self-confinement via attraction term
-    
-    // Apply all pairwise interactions
+    // Apply all pairwise interactions (optimized: calculate distance once per pair)
     for (let i = 0; i < swarm.length; i++) {
         for (let j = i + 1; j < swarm.length; j++) {
-            // Repulsion forces (collision avoidance)
-            applyRepulsionForce(swarm[i], swarm[j]);
+            // Calculate distance vector once for all three interactions
+            const dxAttract = swarm[j].x - swarm[i].x; // For attraction (agent1 -> agent2)
+            const dyAttract = swarm[j].y - swarm[i].y;
+            const dxRepel = swarm[i].x - swarm[j].x;   // For repulsion (agent1 <- agent2)
+            const dyRepel = swarm[i].y - swarm[j].y;
+            const distanceSquared = dxAttract * dxAttract + dyAttract * dyAttract;
             
-            // Phase-based spatial coupling (J term)
-            applyPhaseBasedSpatialCoupling(swarm[i], swarm[j]);
+            // Skip if too close (numerical stability)
+            if (distanceSquared < 0.000001) {
+                continue;
+            }
             
-            // Phase coupling (K term)
-            applyPhaseCoupling(swarm[i], swarm[j]);
+            const distance = Math.sqrt(distanceSquared);
+            
+            // Repulsion forces (collision avoidance) - uses dxRepel, dyRepel
+            applyRepulsionForce(swarm[i], swarm[j], dxRepel, dyRepel, distanceSquared);
+            
+            // Phase-based spatial coupling (J term) - reuse distance and dxAttract, dyAttract
+            applyPhaseBasedSpatialCoupling(swarm[i], swarm[j], dxAttract, dyAttract, distance);
+            
+            // Phase coupling (K term) - reuse distance
+            applyPhaseCoupling(swarm[i], swarm[j], distance);
         }
     }
     
-    // Integrate: update positions, velocities, and phases with damping
+    // Integrate: update positions, velocities, and phases
     for (const agent of swarm) {
-        agent.update(deltaTime, MU, canvas.width, canvas.height);
+        agent.update(deltaTime, canvas.width, canvas.height);
     }
 }
 
 /**
  * Main render loop with frame-rate independent physics
+ * Throttled to TARGET_FPS to match capture rate
  * @param {number} currentTime - Current timestamp from requestAnimationFrame
  */
 function render(currentTime) {
+    // Throttle to TARGET_FPS (30 FPS to match capture rate)
+    const elapsed = currentTime - lastTime;
+    if (elapsed < FRAME_INTERVAL_MS) {
+        requestAnimationFrame(render);
+        return;
+    }
+    
     // Calculate deltaTime (in seconds)
-    // At 60 FPS, this is approximately 1/60 ≈ 0.0167 seconds per frame
+    // At 30 FPS, this is approximately 1/30 ≈ 0.0333 seconds per frame
     const rawDeltaTime = Math.min(
-        (currentTime - lastTime) / 1000,
+        elapsed / 1000,
         DELTA_TIME_CAP
     );
     lastTime = currentTime;
@@ -262,9 +283,56 @@ function render(currentTime) {
     requestAnimationFrame(render);
 }
 
+/**
+ * Displays all simulation parameters in the HTML
+ */
+function displayParameters() {
+    const paramsDiv = document.getElementById('params');
+    if (!paramsDiv) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    paramsDiv.innerHTML = `
+        <h3>Simulation Parameters</h3>
+        <div class="param-row">
+            <span class="param-label">N (Agents):</span>
+            <span class="param-value">${N}</span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">J (Spatial Coupling):</span>
+            <span class="param-value">${J}</span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">K (Phase Coupling):</span>
+            <span class="param-value">${K}</span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">Repulsion Strength:</span>
+            <span class="param-value">${REPULSION_STRENGTH}</span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">Epsilon (Soft Core):</span>
+            <span class="param-value">${EPSILON}</span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">Time Scale:</span>
+            <span class="param-value">${TIME_SCALE}</span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">Base Omega:</span>
+            <span class="param-value">${BASE_OMEGA}</span>
+        </div>
+        <div class="param-row">
+            <span class="param-label">Omega Variation:</span>
+            <span class="param-value">${OMEGA_VARIATION}</span>
+        </div>
+    `;
+}
+
 // Initialize and start the simulation
 try {
     initialize();
+    displayParameters();
     console.log('Simulation initialized successfully');
     requestAnimationFrame((time) => {
         lastTime = time;

@@ -21,8 +21,6 @@ export const N = getUrlParam('N', 200); // Number of agents
 // ============================================================================
 // Initial Conditions
 // ============================================================================
-export const SPEED = 5; // Initial speed magnitude for all agents
-
 // Phase dynamics
 export const BASE_OMEGA = 0.1; // Common base intrinsic frequency for all agents
 export const OMEGA_VARIATION = 0.0; // Random variation range for omega
@@ -79,31 +77,17 @@ export const K = getUrlParam('K', -1.00);
 // ============================================================================
 
 /**
- * Harmonic Potential Well (Confinement)
- * NOTE: Set to 0 - the swarmalator model is self-confining via the attraction term's constant "1"
- */
-export const K_WELL = getUrlParam('K_WELL', 0.0); // Disabled - self-confinement via attraction term
-
-/**
  * Repulsion Force (Collision Avoidance)
  * Prevents agents from overlapping
  * NOTE: Must be significantly larger than attraction strength to prevent collapse
  * The attraction term has constant strength (infinite range), so repulsion needs to dominate at close distances
  */
-export const REPULSION_STRENGTH = getUrlParam('REP', 10000.0); // Repulsion force multiplier (higher = stronger repulsion)
-export const EPSILON = 1.0; // Softening parameter to prevent singularity at r=0 (soft core repulsion)
-export const CUTOFF_RADIUS = Infinity; // No cutoff - infinite range interactions (as per reference)
+export const REPULSION_STRENGTH = getUrlParam('REP', 4000.0); // Repulsion force multiplier (scaled for 800x600 canvas)
+export const EPSILON = 4.0; // Softening parameter to prevent singularity at r=0 (scaled for 800x600 canvas)
 
 // ============================================================================
 // Dynamics
 // ============================================================================
-
-/**
- * Velocity Damping (Friction)
- * NOTE: Not used in overdamped dynamics - kept for API compatibility only
- * Overdamped systems naturally stop when forces balance (no damping needed)
- */
-export const MU = getUrlParam('MU', 0.999); // Damping coefficient (unused in overdamped model)
 
 /**
  * Time Scale Multiplier
