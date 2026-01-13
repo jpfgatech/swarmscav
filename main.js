@@ -11,17 +11,32 @@ import {
     EPSILON,
     CUTOFF_RADIUS,
     MU,
-    TIME_SCALE,
-    RENDER_SKIP_INTERVAL
+    TIME_SCALE
 } from './config.js';
 
-// Canvas setup
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
+// Canvas setup - wait for DOM to be ready
+let canvas, ctx;
 
-// Set canvas size (restored to original, agents will be spaced further apart)
-canvas.width = 800;
-canvas.height = 600;
+function setupCanvas() {
+    canvas = document.getElementById('canvas');
+    if (!canvas) {
+        console.error('Canvas element not found!');
+        throw new Error('Canvas element #canvas not found in DOM');
+    }
+    ctx = canvas.getContext('2d');
+    if (!ctx) {
+        console.error('Could not get 2D context from canvas!');
+        throw new Error('Could not get 2D rendering context');
+    }
+    
+    // Set canvas size (restored to original, agents will be spaced further apart)
+    canvas.width = 800;
+    canvas.height = 600;
+    console.log('Canvas initialized:', canvas.width, 'x', canvas.height);
+}
+
+// Setup canvas immediately (module scripts run after DOM is parsed)
+setupCanvas();
 
 // State: array of agents
 const swarm = [];
@@ -30,10 +45,6 @@ const swarm = [];
 let lastTime = 0;
 const TARGET_FPS = 60;
 const DELTA_TIME_CAP = 1 / 30; // Cap deltaTime to prevent large jumps
-
-// Fast computation mode (skip rendering to focus on physics)
-let fastMode = false;
-let frameCounter = 0;
 
 /**
  * Initializes the swarm with N agents
@@ -53,6 +64,10 @@ function initialize() {
  */
 function clear() {
     // Semi-transparent fill for motion blur effect
+    if (!ctx) {
+        console.error('Canvas context is null!');
+        return;
+    }
     ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
@@ -224,49 +239,32 @@ function render(currentTime) {
     // Always update physics (computation happens every frame)
     updatePhysics(deltaTime);
     
-    // Only render every N frames in fast mode
-    frameCounter++;
-    const shouldRender = !fastMode || (frameCounter % RENDER_SKIP_INTERVAL === 0);
+    // Clear canvas
+    clear();
     
-    if (shouldRender) {
-        // Clear canvas
-        clear();
-        
-        // Update colors and draw agents
-        for (const agent of swarm) {
-            agent.updateColor();
-            agent.draw(ctx);
-        }
-        
-        // Show fast mode indicator
-        if (fastMode) {
-            ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
-            ctx.font = '16px monospace';
-            ctx.fillText(`FAST MODE (rendering every ${RENDER_SKIP_INTERVAL} frames)`, 10, 25);
-            ctx.fillText(`Frame: ${frameCounter}`, 10, 45);
-        }
+    // Update colors and draw agents
+    if (swarm.length === 0) {
+        console.warn('Swarm is empty - cannot render');
+        return;
+    }
+    for (const agent of swarm) {
+        agent.updateColor();
+        agent.draw(ctx);
     }
     
     // Continue the animation loop
     requestAnimationFrame(render);
 }
 
-// Keyboard controls for fast mode toggle
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'f' || event.key === 'F') {
-        fastMode = !fastMode;
-        frameCounter = 0; // Reset counter when toggling
-        console.log(`Fast mode: ${fastMode ? 'ON' : 'OFF'}`);
-        if (fastMode) {
-            console.log(`Rendering every ${RENDER_SKIP_INTERVAL} frames`);
-        }
-    }
-});
-
 // Initialize and start the simulation
-initialize();
-console.log('Press "F" to toggle fast computation mode');
-requestAnimationFrame((time) => {
-    lastTime = time;
-    render(time);
-});
+try {
+    initialize();
+    console.log('Simulation initialized successfully');
+    requestAnimationFrame((time) => {
+        lastTime = time;
+        render(time);
+    });
+} catch (error) {
+    console.error('Failed to initialize simulation:', error);
+    throw error;
+}

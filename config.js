@@ -2,12 +2,21 @@
  * Swarmalator Simulation Configuration
  * 
  * This file contains all tunable parameters for the swarmalator simulation.
+ * Parameters can be overridden via URL query parameters (e.g., ?J=1.0&K=-1.0)
  */
+
+// Helper function to get URL parameter or return default
+function getUrlParam(name, defaultValue) {
+    if (typeof window === 'undefined') return defaultValue;
+    const urlParams = new URLSearchParams(window.location.search);
+    const value = urlParams.get(name);
+    return value !== null ? parseFloat(value) : defaultValue;
+}
 
 // ============================================================================
 // Agent Population
 // ============================================================================
-export const N = 500; // Number of agents
+export const N = getUrlParam('N', 200); // Number of agents
 
 // ============================================================================
 // Initial Conditions
@@ -42,7 +51,7 @@ export const OMEGA_VARIATION = 0.00; // Random variation range for omega
  *   - No phase-based spatial coupling
  *   - Spatial forces depend only on repulsion and well forces
  */
-export const J = 1.0;
+export const J = getUrlParam('J', -0.2);
 
 /**
  * K - Phase Coupling Constant (Spatial-based phase synchronization)
@@ -63,7 +72,7 @@ export const J = 1.0;
  *   - No phase coupling between agents
  *   - Phases evolve only based on intrinsic frequency (omega)
  */
-export const K = 0.00;
+export const K = getUrlParam('K', 0.00);
 
 // ============================================================================
 // Spatial Forces
@@ -73,15 +82,15 @@ export const K = 0.00;
  * Harmonic Potential Well (Confinement)
  * Pulls agents toward the center of the canvas
  */
-export const K_WELL = 0.002; // Stiffness coefficient (higher = tighter confinement)
+export const K_WELL = getUrlParam('K_WELL', 0.002); // Stiffness coefficient (higher = tighter confinement)
 
 /**
  * Repulsion Force (Collision Avoidance)
  * Prevents agents from overlapping
  */
-export const REPULSION_STRENGTH = 1.0; // Repulsion force multiplier (higher = stronger repulsion)
+export const REPULSION_STRENGTH = getUrlParam('REP', 1.0); // Repulsion force multiplier (higher = stronger repulsion)
 export const EPSILON = 0.1; // Softening parameter to prevent singularity at r=0
-export const CUTOFF_RADIUS = 30; // Distance threshold for repulsion calculation (optimization)
+export const CUTOFF_RADIUS = 100; // Distance threshold for repulsion calculation (optimization)
 
 // ============================================================================
 // Dynamics
@@ -91,7 +100,7 @@ export const CUTOFF_RADIUS = 30; // Distance threshold for repulsion calculation
  * Velocity Damping (Friction)
  * Removes kinetic energy from the system over time
  */
-export const MU = 0.95; // Damping coefficient
+export const MU = getUrlParam('MU', 0.999); // Damping coefficient
 // 1.0 = no friction (perpetual motion)
 // 0.9-0.99 = fluid-like (water/air)
 // < 0.5 = over-damped (molasses)
@@ -102,7 +111,3 @@ export const MU = 0.95; // Damping coefficient
  */
 export const TIME_SCALE = 20.0; // 1.0 = normal speed, > 1.0 = faster, < 1.0 = slower
 
-// ============================================================================
-// Rendering
-// ============================================================================
-export const RENDER_SKIP_INTERVAL = 100; // Render every N frames in fast mode

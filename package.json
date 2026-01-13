@@ -5,9 +5,17 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "batch": "node batch_runner.js",
+    "estimate": "node estimate_batch.js"
   },
   "devDependencies": {
     "vite": "^5.0.0"
+  },
+  "dependencies": {
+    "jimp": "^0.22.10",
+    "omggif": "^1.0.10",
+    "puppeteer": "^21.0.0",
+    "quantize": "^1.0.2"
   }
 }
