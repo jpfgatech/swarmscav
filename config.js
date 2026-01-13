@@ -25,7 +25,7 @@ export const SPEED = 5; // Initial speed magnitude for all agents
 
 // Phase dynamics
 export const BASE_OMEGA = 0.1; // Common base intrinsic frequency for all agents
-export const OMEGA_VARIATION = 0.00; // Random variation range for omega
+export const OMEGA_VARIATION = 0.0; // Random variation range for omega
 // Each agent gets: omega = BASE_OMEGA ± OMEGA_VARIATION
 
 // ============================================================================
@@ -51,7 +51,7 @@ export const OMEGA_VARIATION = 0.00; // Random variation range for omega
  *   - No phase-based spatial coupling
  *   - Spatial forces depend only on repulsion and well forces
  */
-export const J = getUrlParam('J', -0.2);
+export const J = getUrlParam('J', 2.0);
 
 /**
  * K - Phase Coupling Constant (Spatial-based phase synchronization)
@@ -72,7 +72,7 @@ export const J = getUrlParam('J', -0.2);
  *   - No phase coupling between agents
  *   - Phases evolve only based on intrinsic frequency (omega)
  */
-export const K = getUrlParam('K', 0.00);
+export const K = getUrlParam('K', -1.00);
 
 // ============================================================================
 // Spatial Forces
@@ -80,17 +80,19 @@ export const K = getUrlParam('K', 0.00);
 
 /**
  * Harmonic Potential Well (Confinement)
- * Pulls agents toward the center of the canvas
+ * NOTE: Set to 0 - the swarmalator model is self-confining via the attraction term's constant "1"
  */
-export const K_WELL = getUrlParam('K_WELL', 0.002); // Stiffness coefficient (higher = tighter confinement)
+export const K_WELL = getUrlParam('K_WELL', 0.0); // Disabled - self-confinement via attraction term
 
 /**
  * Repulsion Force (Collision Avoidance)
  * Prevents agents from overlapping
+ * NOTE: Must be significantly larger than attraction strength to prevent collapse
+ * The attraction term has constant strength (infinite range), so repulsion needs to dominate at close distances
  */
-export const REPULSION_STRENGTH = getUrlParam('REP', 1.0); // Repulsion force multiplier (higher = stronger repulsion)
-export const EPSILON = 0.1; // Softening parameter to prevent singularity at r=0
-export const CUTOFF_RADIUS = 100; // Distance threshold for repulsion calculation (optimization)
+export const REPULSION_STRENGTH = getUrlParam('REP', 10000.0); // Repulsion force multiplier (higher = stronger repulsion)
+export const EPSILON = 1.0; // Softening parameter to prevent singularity at r=0 (soft core repulsion)
+export const CUTOFF_RADIUS = Infinity; // No cutoff - infinite range interactions (as per reference)
 
 // ============================================================================
 // Dynamics
@@ -98,16 +100,14 @@ export const CUTOFF_RADIUS = 100; // Distance threshold for repulsion calculatio
 
 /**
  * Velocity Damping (Friction)
- * Removes kinetic energy from the system over time
+ * NOTE: Not used in overdamped dynamics - kept for API compatibility only
+ * Overdamped systems naturally stop when forces balance (no damping needed)
  */
-export const MU = getUrlParam('MU', 0.999); // Damping coefficient
-// 1.0 = no friction (perpetual motion)
-// 0.9-0.99 = fluid-like (water/air)
-// < 0.5 = over-damped (molasses)
+export const MU = getUrlParam('MU', 0.999); // Damping coefficient (unused in overdamped model)
 
 /**
  * Time Scale Multiplier
  * Speeds up or slows down the entire simulation
  */
-export const TIME_SCALE = 20.0; // 1.0 = normal speed, > 1.0 = faster, < 1.0 = slower
+export const TIME_SCALE = 100.0; // 1.0 = normal speed, > 1.0 = faster, < 1.0 = slower
 

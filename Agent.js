@@ -66,24 +66,22 @@ export class Agent {
     }
     
     /**
-     * Updates position and velocity based on acceleration and damping
+     * Updates position using overdamped dynamics (Aristotelian motion)
+     * Reference implementation: velocity = force directly (no momentum/inertia)
      * Also updates phase based on phase derivative
      * @param {number} deltaTime - Time step for integration
-     * @param {number} damping - Damping coefficient (mu) for velocity friction
+     * @param {number} damping - NOT USED (kept for API compatibility, overdamped has no damping)
      * @param {number} canvasWidth - Width of the canvas
      * @param {number} canvasHeight - Height of the canvas
      */
     update(deltaTime, damping, canvasWidth, canvasHeight) {
-        // Apply velocity damping (friction): v = v * μ
-        // This simulates a viscous medium removing kinetic energy
-        this.vx *= damping;
-        this.vy *= damping;
+        // Overdamped dynamics: velocity = force (no accumulation, no momentum)
+        // This is Aristotelian motion, not Newtonian
+        // The system naturally stops when forces balance (no need for damping)
+        this.vx = this.ax; // Velocity is directly set to force
+        this.vy = this.ay;
         
-        // Add acceleration to velocity: v = v + a * dt
-        this.vx += this.ax * deltaTime;
-        this.vy += this.ay * deltaTime;
-        
-        // Update position: r = r + v * dt
+        // Update position: r = r + v * dt = r + F * dt
         this.x += this.vx * deltaTime;
         this.y += this.vy * deltaTime;
         

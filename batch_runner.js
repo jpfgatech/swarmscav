@@ -38,28 +38,24 @@ const BROWSER_RECYCLE_INTERVAL = 50; // Recycle browser every N runs
 const FIXED_N = 500;
 const FIXED_TIME_SCALE = 20.0;
 
-// Parameter arrays (5 dimensions) - MUST MATCH estimate_batch.js
-const J_VALUES = [-2.0, -1.5, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0];
-const K_VALUES = [-2.0, -1.5, -1.0, -0.8, -0.6, -0.4, -0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.5, 2.0];
-const MU_VALUES = [0.90, 0.95, 0.99];
-const K_WELL_VALUES = [0.001, 0.002, 0.005];
-const REP_VALUES = [0.5, 1.0, 2.0];
+// Parameter arrays (2 dimensions: J and K only)
+// Generate values from -2.0 to 2.0 with 0.2 step (21 values each)
+const J_VALUES = [];
+const K_VALUES = [];
+for (let i = -2.0; i <= 2.0; i += 0.2) {
+    J_VALUES.push(Math.round(i * 10) / 10); // Round to avoid floating point errors
+    K_VALUES.push(Math.round(i * 10) / 10);
+}
 
 /**
- * Generate Cartesian product of all parameter arrays
+ * Generate Cartesian product of J and K parameter arrays
  */
 function generateJobManifest() {
     const jobs = [];
     
     for (const J of J_VALUES) {
         for (const K of K_VALUES) {
-            for (const MU of MU_VALUES) {
-                for (const K_WELL of K_WELL_VALUES) {
-                    for (const REP of REP_VALUES) {
-                        jobs.push({ J, K, MU, K_WELL, REP });
-                    }
-                }
-            }
+            jobs.push({ J, K });
         }
     }
     

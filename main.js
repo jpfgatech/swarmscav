@@ -92,67 +92,76 @@ function applyWellForce(agent, centerX, centerY) {
 
 /**
  * Calculates and applies repulsion forces between agents
+ * Reference: F_rep = (r_i - r_j) / (|r_i - r_j|^2 + epsilon) / N
  * @param {Agent} agent1 - First agent
  * @param {Agent} agent2 - Second agent
  */
 function applyRepulsionForce(agent1, agent2) {
-    // Calculate distance vector
+    // Calculate distance vector (from agent2 to agent1)
     const dx = agent1.x - agent2.x;
     const dy = agent1.y - agent2.y;
     const distanceSquared = dx * dx + dy * dy;
     const distance = Math.sqrt(distanceSquared);
     
-    // Optimization: skip if beyond cutoff radius
-    if (distance > CUTOFF_RADIUS || distance < 0.001) {
+    // Skip if too close (numerical stability)
+    if (distance < 0.001) {
         return;
     }
     
-    // Inverse square law repulsion with softening parameter
-    // F = (direction) / (distance^2 + epsilon)
-    const forceMagnitude = REPULSION_STRENGTH / (distanceSquared + EPSILON);
+    // Soft core repulsion: F = (r_i - r_j) / (|r_i - r_j|^2 + epsilon) / N
+    // The /N scaling is critical to prevent force explosion with large populations
+    const forceMagnitude = REPULSION_STRENGTH / (distanceSquared + EPSILON) / N;
     const fx = (dx / distance) * forceMagnitude;
     const fy = (dy / distance) * forceMagnitude;
     
-    // Apply force to agent1 (Newton's third law: agent2 gets opposite force)
+    // Apply force (symmetric, Newton's third law)
     agent1.addForce(fx, fy);
     agent2.addForce(-fx, -fy);
 }
 
 /**
  * Calculates and applies phase-based spatial coupling (J term)
- * This creates attraction/repulsion based on phase difference
+ * Reference: F_att = (1 + J*cos(θ_j - θ_i)) * (r_j - r_i) / |r_j - r_i| / N
+ * The constant "1" provides infinite-range global gravity (self-confinement)
  * @param {Agent} agent1 - First agent
  * @param {Agent} agent2 - Second agent
  */
 function applyPhaseBasedSpatialCoupling(agent1, agent2) {
-    // Calculate distance vector
-    const dx = agent2.x - agent1.x; // Direction from agent1 to agent2
+    // Calculate distance vector (from agent1 to agent2)
+    const dx = agent2.x - agent1.x;
     const dy = agent2.y - agent1.y;
     const distanceSquared = dx * dx + dy * dy;
     const distance = Math.sqrt(distanceSquared);
     
-    // Skip if too close or too far
-    if (distance < 0.001 || distance > CUTOFF_RADIUS) {
+    // Skip if too close (numerical stability)
+    if (distance < 0.001) {
         return;
     }
     
     // Phase difference
     const phaseDiff = agent2.theta - agent1.theta;
     
-    // Phase-based spatial coupling: J * (r_j - r_i) / |r_j - r_i| * sin(θ_j - θ_i)
-    // This creates attraction when phases are similar, repulsion when opposite
-    const couplingStrength = J * Math.sin(phaseDiff) / distance;
-    const fx = (dx / distance) * couplingStrength;
-    const fy = (dy / distance) * couplingStrength;
+    // Attraction: (1 + J*cos(θ_j - θ_i)) * unit_vector / N
+    // Unit vector direction (infinite range - strength independent of distance)
+    const unitX = dx / distance;
+    const unitY = dy / distance;
     
-    // Apply force (symmetric)
+    // Coupling strength: (1 + J*cos(phaseDiff)) / N
+    // The "1" provides constant global attraction (self-confinement)
+    // J*cos modulates based on phase similarity
+    const couplingStrength = (1.0 + J * Math.cos(phaseDiff)) / N;
+    
+    const fx = unitX * couplingStrength;
+    const fy = unitY * couplingStrength;
+    
+    // Apply force (symmetric, Newton's third law)
     agent1.addForce(fx, fy);
     agent2.addForce(-fx, -fy);
 }
 
 /**
  * Calculates and applies phase coupling (K term)
- * This synchronizes phases based on spatial distance
+ * Reference: dθ/dt += K * sin(θ_j - θ_i) / |r_j - r_i| / N
  * @param {Agent} agent1 - First agent
  * @param {Agent} agent2 - Second agent
  */
@@ -163,17 +172,17 @@ function applyPhaseCoupling(agent1, agent2) {
     const distanceSquared = dx * dx + dy * dy;
     const distance = Math.sqrt(distanceSquared);
     
-    // Skip if too close or too far
-    if (distance < 0.001 || distance > CUTOFF_RADIUS) {
+    // Skip if too close (numerical stability)
+    if (distance < 0.001) {
         return;
     }
     
     // Phase difference
     const phaseDiff = agent2.theta - agent1.theta;
     
-    // Phase coupling: K * sin(θ_j - θ_i) / |r_j - r_i|
-    // This synchronizes phases of nearby agents
-    const phaseCoupling = K * Math.sin(phaseDiff) / distance;
+    // Phase coupling: K * sin(θ_j - θ_i) / |r_j - r_i| / N
+    // The /N scaling is critical to prevent phase derivative explosion
+    const phaseCoupling = K * Math.sin(phaseDiff) / distance / N;
     
     // Apply phase derivative (symmetric)
     agent1.addPhaseDerivative(phaseCoupling);
@@ -195,10 +204,7 @@ function updatePhysics(deltaTime) {
         agent.dtheta_dt = agent.omega; // Start with natural frequency
     }
     
-    // Apply well force to each agent
-    for (const agent of swarm) {
-        applyWellForce(agent, centerX, centerY);
-    }
+    // Well force disabled (K_WELL = 0) - self-confinement via attraction term
     
     // Apply all pairwise interactions
     for (let i = 0; i < swarm.length; i++) {
