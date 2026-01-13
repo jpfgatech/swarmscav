@@ -1,0 +1,15 @@
+{
+  "energy": {
+    "threshold_per_agent": 0.001,
+    "consecutive_frames": 30
+  },
+  "capture": {
+    "frame_rate": 30,
+    "batch_duration_ms": 5000,
+    "single_duration_ms": 30000,
+    "warmup_ms": 10000
+  },
+  "browser": {
+    "recycle_interval": 50
+  }
+}

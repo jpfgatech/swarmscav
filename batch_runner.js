@@ -20,24 +20,45 @@ const quantize = require('quantize');
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Load batch configuration from JSON file
+const CONFIG_PATH = path.join(__dirname, 'batch_config.json');
+let batchConfig;
+try {
+    const configData = fs.readFileSync(CONFIG_PATH, 'utf8');
+    batchConfig = JSON.parse(configData);
+} catch (error) {
+    console.error(`Error loading batch_config.json: ${error.message}`);
+    console.error('Using default configuration');
+    batchConfig = {
+        energy: { threshold_per_agent: 0.001, consecutive_frames: 30 },
+        capture: { frame_rate: 30, batch_duration_ms: 5000, single_duration_ms: 30000, warmup_ms: 10000 },
+        browser: { recycle_interval: 50 }
+    };
+}
+
 // Configuration
 const PORT = 5173;
 const BASE_URL = `http://localhost:${PORT}`;
 const OUTPUT_DIR = path.join(__dirname, 'output');
 const ERROR_LOG = path.join(__dirname, 'error_log.txt');
-const CAPTURE_DURATION = 5000; // 5 seconds (for batch mode)
-const SINGLE_SIM_DURATION = 30000; // 30 seconds (for single simulation mode)
-const FRAME_RATE = 30;
+const KILLED_LOG = path.join(__dirname, 'output', 'killed_log.txt');
+const CAPTURE_DURATION = batchConfig.capture.batch_duration_ms;
+const SINGLE_SIM_DURATION = batchConfig.capture.single_duration_ms;
+const FRAME_RATE = batchConfig.capture.frame_rate;
 const FRAME_INTERVAL = 1000 / FRAME_RATE;
 const TOTAL_FRAMES = Math.floor((CAPTURE_DURATION / 1000) * FRAME_RATE);
 const SINGLE_SIM_FRAMES = Math.floor((SINGLE_SIM_DURATION / 1000) * FRAME_RATE);
-const WARMUP_TIME = 10000; // 10 seconds warmup (skip first 10 seconds) - for batch mode only
+const WARMUP_TIME = batchConfig.capture.warmup_ms;
 // GIF delay in centiseconds (hundredths of a second) - omggif expects this format
 const GIF_DELAY = Math.round(FRAME_INTERVAL / 10); // Convert ms to centiseconds
 // Canvas dimensions (must match main.js)
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
-const BROWSER_RECYCLE_INTERVAL = 50; // Recycle browser every N runs
+const BROWSER_RECYCLE_INTERVAL = batchConfig.browser.recycle_interval;
+
+// Energy monitor parameters (from config)
+const ENERGY_THRESHOLD_PER_AGENT = batchConfig.energy.threshold_per_agent;
+const ENERGY_KILL_FRAMES = batchConfig.energy.consecutive_frames;
 
 // Fixed constants
 const FIXED_N = 500;
@@ -45,11 +66,16 @@ const FIXED_TIME_SCALE = 20.0;
 
 // Parameter arrays (2 dimensions: J and K only)
 // Generate values from -2.0 to 2.0 with 0.2 step (21 values each)
+// Exclude J <= -1.2 (all exploding/not interesting)
 const J_VALUES = [];
 const K_VALUES = [];
 for (let i = -2.0; i <= 2.0; i += 0.2) {
-    J_VALUES.push(Math.round(i * 10) / 10); // Round to avoid floating point errors
-    K_VALUES.push(Math.round(i * 10) / 10);
+    const val = Math.round(i * 10) / 10; // Round to avoid floating point errors
+    K_VALUES.push(val);
+    // Only include J values > -1.2
+    if (val > -1.2) {
+        J_VALUES.push(val);
+    }
 }
 
 /**
@@ -138,11 +164,14 @@ function ensureOutputDir() {
  * @param {boolean} isSingleSim - If true, capture 30s from start; if false, 5s after 10s warmup
  */
 async function captureSimulation(page, job, isSingleSim = false) {
-    // Build URL with J and K parameters only
+    // Build URL with J and K parameters, plus energy threshold parameters
     const params = new URLSearchParams({
         J: job.J.toString(),
         K: job.K.toString(),
-        N: FIXED_N.toString()
+        N: FIXED_N.toString(),
+        ENERGY_THRESHOLD: ENERGY_THRESHOLD_PER_AGENT.toString(),
+        ENERGY_KILL_FRAMES: ENERGY_KILL_FRAMES.toString(),
+        ENABLE_AUTO_KILL: 'true' // Enable auto-kill in batch mode
     });
     const url = `${BASE_URL}?${params.toString()}`;
     
@@ -176,8 +205,34 @@ async function captureSimulation(page, job, isSingleSim = false) {
     // Collect all frames first
     const frames = [];
     const progressInterval = Math.max(1, Math.floor(frameCount / 10)); // Log every 10%
+    const startTime = Date.now();
+    let killed = false;
     
     for (let i = 0; i < frameCount; i++) {
+        // Check for auto-kill condition (poll every 100ms = every 3 frames at 30 FPS)
+        if (i % 3 === 0) {
+            const status = await page.evaluate(() => window.SIMULATION_STATUS);
+            if (status === 'DEAD') {
+                const result = await page.evaluate(() => window.SIMULATION_RESULT);
+                const elapsedTime = (Date.now() - startTime) / 1000;
+                killed = true;
+                
+                // Log to killed_log.txt
+                const timestamp = new Date().toISOString();
+                const logEntry = `[${timestamp}] KILLED: J=${job.J} K=${job.K} | Time: ${elapsedTime.toFixed(2)}s | Final Energy: ${result.energy.toFixed(6)}\n`;
+                
+                // Ensure output directory exists
+                if (!fs.existsSync(OUTPUT_DIR)) {
+                    fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+                }
+                fs.appendFileSync(KILLED_LOG, logEntry);
+                
+                console.log(`  ⚠️  Simulation reached equilibrium - killed early (${elapsedTime.toFixed(2)}s)`);
+                console.log(`  Final Energy: ${result.energy.toFixed(6)}`);
+                break;
+            }
+        }
+        
         // Log progress for long captures
         if (frameCount > 100 && (i % progressInterval === 0 || i === frameCount - 1)) {
             const percent = Math.round((i + 1) / frameCount * 100);
@@ -215,6 +270,11 @@ async function captureSimulation(page, job, isSingleSim = false) {
     
     if (frameCount > 100) {
         process.stdout.write('\n'); // New line after progress
+    }
+    
+    // If simulation was killed, don't save GIF
+    if (killed) {
+        return { success: true, filepath: null, skipped: false, killed: true };
     }
     
     console.log(`  Collected ${frames.length} frames, encoding GIF...`);
@@ -474,7 +534,9 @@ async function runBatch() {
                 const result = await captureSimulation(page, job, isSingleSim);
                 results.push({ ...job, ...result });
                 
-                if (!result.skipped) {
+                if (result.killed) {
+                    // Already logged to killed_log.txt
+                } else if (!result.skipped) {
                     console.log(`  ✓ Saved: ${path.basename(result.filepath)}`);
                 }
             } catch (error) {
@@ -498,14 +560,20 @@ async function runBatch() {
         console.log('\n' + '='.repeat(60));
         console.log('Batch Processing Complete');
         console.log('='.repeat(60));
-        const successful = results.filter(r => r.success && !r.skipped).length;
+        const successful = results.filter(r => r.success && !r.skipped && !r.killed).length;
         const failed = results.filter(r => !r.success).length;
         const skipped = results.filter(r => r.skipped).length;
+        const killed = results.filter(r => r.killed).length;
         
         console.log(`Total: ${totalJobs} simulations`);
         console.log(`Successful: ${successful}`);
+        console.log(`Killed (equilibrium): ${killed}`);
         console.log(`Failed: ${failed}`);
         console.log(`Skipped (already existed): ${skipped}`);
+        
+        if (killed > 0) {
+            console.log(`\n⚠ Killed simulations logged to: ${KILLED_LOG}`);
+        }
         
         if (failed > 0) {
             console.log(`\n⚠ Errors logged to: ${ERROR_LOG}`);

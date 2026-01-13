@@ -1,4 +1,5 @@
 import { Agent } from './Agent.js';
+import { EnergyMonitor } from './EnergyMonitor.js';
 import {
     N,
     BASE_OMEGA,
@@ -7,7 +8,10 @@ import {
     K,
     REPULSION_STRENGTH,
     EPSILON,
-    TIME_SCALE
+    TIME_SCALE,
+    ENERGY_THRESHOLD_PER_AGENT,
+    ENERGY_KILL_FRAMES,
+    ENABLE_AUTO_KILL
 } from './config.js';
 
 // Canvas setup - wait for DOM to be ready
@@ -37,8 +41,12 @@ setupCanvas();
 // State: array of agents
 const swarm = [];
 
+// Energy monitor for convergence detection (with configurable thresholds)
+const energyMonitor = new EnergyMonitor(600, ENERGY_THRESHOLD_PER_AGENT, ENERGY_KILL_FRAMES);
+
 // Timing for frame-rate independent physics
 let lastTime = 0;
+let simulationStartTime = 0;
 const TARGET_FPS = 30; // Match capture frame rate for consistency
 const DELTA_TIME_CAP = 1 / 30; // Cap deltaTime to prevent large jumps
 const FRAME_INTERVAL_MS = 1000 / TARGET_FPS; // ~33.33ms for 30 FPS
@@ -237,6 +245,20 @@ function updatePhysics(deltaTime) {
     for (const agent of swarm) {
         agent.update(deltaTime, canvas.width, canvas.height);
     }
+    
+    // Measure kinetic energy and check for convergence
+    const currentEnergy = energyMonitor.measure(swarm);
+    
+    // Auto-kill check: if system has reached equilibrium, mark as dead (only in batch mode)
+    if (ENABLE_AUTO_KILL && energyMonitor.isDead()) {
+        window.SIMULATION_STATUS = 'DEAD';
+        const simulationTime = (performance.now() - simulationStartTime) / 1000; // Time in seconds since start
+        window.SIMULATION_RESULT = {
+            time: simulationTime,
+            energy: currentEnergy,
+            params: { J, K, N }
+        };
+    }
 }
 
 /**
@@ -266,6 +288,12 @@ function render(currentTime) {
     // Always update physics (computation happens every frame)
     updatePhysics(deltaTime);
     
+    // Check if simulation is dead (reached equilibrium) - only stop rendering in batch mode
+    if (ENABLE_AUTO_KILL && window.SIMULATION_STATUS === 'DEAD') {
+        // Stop rendering but keep the loop alive for batch runner to detect
+        return;
+    }
+    
     // Clear canvas
     clear();
     
@@ -278,6 +306,9 @@ function render(currentTime) {
         agent.updateColor();
         agent.draw(ctx);
     }
+    
+    // Render energy monitor (EKG-style graph)
+    energyMonitor.render(ctx, canvas.width, canvas.height);
     
     // Continue the animation loop
     requestAnimationFrame(render);
@@ -329,10 +360,15 @@ function displayParameters() {
     `;
 }
 
+// Initialize simulation status
+window.SIMULATION_STATUS = 'RUNNING';
+window.SIMULATION_RESULT = null;
+
 // Initialize and start the simulation
 try {
     initialize();
     displayParameters();
+    simulationStartTime = performance.now(); // Track simulation start time
     console.log('Simulation initialized successfully');
     requestAnimationFrame((time) => {
         lastTime = time;

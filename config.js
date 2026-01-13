@@ -13,6 +13,15 @@ function getUrlParam(name, defaultValue) {
     return value !== null ? parseFloat(value) : defaultValue;
 }
 
+// Helper function to get URL parameter as boolean
+function getUrlParamBool(name, defaultValue) {
+    if (typeof window === 'undefined') return defaultValue;
+    const urlParams = new URLSearchParams(window.location.search);
+    const value = urlParams.get(name);
+    if (value === null) return defaultValue;
+    return value === 'true' || value === '1';
+}
+
 // ============================================================================
 // Agent Population
 // ============================================================================
@@ -95,3 +104,26 @@ export const EPSILON = 4.0; // Softening parameter to prevent singularity at r=0
  */
 export const TIME_SCALE = 100.0; // 1.0 = normal speed, > 1.0 = faster, < 1.0 = slower
 
+// ============================================================================
+// Energy Monitor (Auto-Kill Optimization)
+// ============================================================================
+
+/**
+ * Energy threshold per agent for convergence detection
+ * When average kinetic energy per agent falls below this value for ENERGY_KILL_FRAMES
+ * consecutive frames, the simulation is considered "dead" (reached equilibrium)
+ */
+export const ENERGY_THRESHOLD_PER_AGENT = getUrlParam('ENERGY_THRESHOLD', 0.001);
+
+/**
+ * Number of consecutive frames below threshold required to trigger auto-kill
+ * At 30 FPS, default of 30 frames = 1 second of low energy
+ */
+export const ENERGY_KILL_FRAMES = getUrlParam('ENERGY_KILL_FRAMES', 30);
+
+/**
+ * Enable auto-kill optimization (only active in batch mode)
+ * When false, simulation continues even if equilibrium is reached (for dev mode)
+ * Default: false (disabled in dev mode)
+ */
+export const ENABLE_AUTO_KILL = getUrlParamBool('ENABLE_AUTO_KILL', false);
