@@ -18,6 +18,8 @@ export class HeroLogic {
         this.prevPos = { x: 0, y: 0 }; // Previous position for velocity calculation
         this.isInputActive = false; // Whether input (Space/Touch) is currently active
         this.alpha = 0.95; // Inertia blending factor (0.0 = no inertia, 0.99 = max inertia)
+        this.boostAlpha = 0.0; // Boost multiplier (0.0 = no boost, 4.0 = 5x speed)
+        this.isBoosting = false; // Whether currently boosting (for visual feedback)
         
         // Initialize previous position if provided
         if (initialAgent) {
@@ -39,6 +41,14 @@ export class HeroLogic {
      */
     setAlpha(alpha) {
         this.alpha = Math.max(0.0, Math.min(0.99, alpha));
+    }
+    
+    /**
+     * Sets the boost alpha parameter
+     * @param {number} boostAlpha - Boost multiplier (0.0 to 4.0)
+     */
+    setBoostAlpha(boostAlpha) {
+        this.boostAlpha = Math.max(0.0, Math.min(4.0, boostAlpha));
     }
     
     /**
@@ -75,31 +85,69 @@ export class HeroLogic {
             y: dy / deltaTime
         };
         
+        // Calculate natural step (displacement from physics update)
+        const naturalStep = {
+            x: dx,
+            y: dy
+        };
+        
         if (this.isInputActive) {
-            // Input active: Blend engine velocity with hero velocity (inertia)
-            const blendedVelocity = {
-                x: (1 - this.alpha) * engineVelocity.x + this.alpha * this.heroVelocity.x,
-                y: (1 - this.alpha) * engineVelocity.y + this.alpha * this.heroVelocity.y
-            };
-            
-            // Override position: newPos = prevPos + blendedVelocity * dt
-            let newX = this.prevPos.x + blendedVelocity.x * deltaTime;
-            let newY = this.prevPos.y + blendedVelocity.y * deltaTime;
-            
-            // Handle toroidal boundary wrapping
-            if (newX < 0) newX += canvasWidth;
-            if (newX >= canvasWidth) newX -= canvasWidth;
-            if (newY < 0) newY += canvasHeight;
-            if (newY >= canvasHeight) newY -= canvasHeight;
-            
-            // Update hero position
-            hero.x = newX;
-            hero.y = newY;
-            
-            // Update hero velocity for next frame
-            this.heroVelocity = blendedVelocity;
+            // Check if boost is enabled (boostAlpha > 0)
+            if (this.boostAlpha > 0) {
+                // Turbo Boost mode: Move faster along natural trajectory
+                this.isBoosting = true;
+                const boostStep = {
+                    x: naturalStep.x * (1 + this.boostAlpha),
+                    y: naturalStep.y * (1 + this.boostAlpha)
+                };
+                
+                // Override position: HeroNewPos = HeroPrevPos + boostStep
+                let newX = this.prevPos.x + boostStep.x;
+                let newY = this.prevPos.y + boostStep.y;
+                
+                // Handle toroidal boundary wrapping
+                if (newX < 0) newX += canvasWidth;
+                if (newX >= canvasWidth) newX -= canvasWidth;
+                if (newY < 0) newY += canvasHeight;
+                if (newY >= canvasHeight) newY -= canvasHeight;
+                
+                // Update hero position
+                hero.x = newX;
+                hero.y = newY;
+                
+                // Update hero velocity based on boost step
+                this.heroVelocity = {
+                    x: boostStep.x / deltaTime,
+                    y: boostStep.y / deltaTime
+                };
+            } else {
+                // Inertia mode: Blend engine velocity with hero velocity
+                this.isBoosting = false;
+                const blendedVelocity = {
+                    x: (1 - this.alpha) * engineVelocity.x + this.alpha * this.heroVelocity.x,
+                    y: (1 - this.alpha) * engineVelocity.y + this.alpha * this.heroVelocity.y
+                };
+                
+                // Override position: newPos = prevPos + blendedVelocity * dt
+                let newX = this.prevPos.x + blendedVelocity.x * deltaTime;
+                let newY = this.prevPos.y + blendedVelocity.y * deltaTime;
+                
+                // Handle toroidal boundary wrapping
+                if (newX < 0) newX += canvasWidth;
+                if (newX >= canvasWidth) newX -= canvasWidth;
+                if (newY < 0) newY += canvasHeight;
+                if (newY >= canvasHeight) newY -= canvasHeight;
+                
+                // Update hero position
+                hero.x = newX;
+                hero.y = newY;
+                
+                // Update hero velocity for next frame
+                this.heroVelocity = blendedVelocity;
+            }
         } else {
             // No input: Sync hero velocity with engine velocity
+            this.isBoosting = false;
             this.heroVelocity = engineVelocity;
         }
         
@@ -119,10 +167,20 @@ export class HeroLogic {
         
         const hero = agents[this.heroIndex];
         
-        // Draw hero as cyan circle (slightly larger than regular agents)
+        // Base radius
+        let radius = 6;
+        
+        // Pulse size when boosting (visual feedback)
+        if (this.isBoosting && this.boostAlpha > 0) {
+            // Pulse effect: slightly larger when boosting
+            const pulseFactor = 1.0 + (this.boostAlpha / 4.0) * 0.3; // Up to 30% larger
+            radius = 6 * pulseFactor;
+        }
+        
+        // Draw hero as cyan circle
         ctx.fillStyle = 'cyan';
         ctx.beginPath();
-        ctx.arc(hero.x, hero.y, 6, 0, 2 * Math.PI);
+        ctx.arc(hero.x, hero.y, radius, 0, 2 * Math.PI);
         ctx.fill();
         
         // Draw white border

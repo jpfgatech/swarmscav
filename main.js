@@ -376,9 +376,15 @@ try {
             showEnergyCurve = show;
         },
         (alpha) => {
-            // Hero alpha callback
+            // Hero alpha callback (inertia)
             if (heroLogic) {
                 heroLogic.setAlpha(alpha);
+            }
+        },
+        (boostAlpha) => {
+            // Hero boost alpha callback (turbo boost)
+            if (heroLogic) {
+                heroLogic.setBoostAlpha(boostAlpha);
             }
         }
     );

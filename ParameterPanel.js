@@ -47,10 +47,11 @@ export function unmapLogScale(value, min, max) {
  * Creates and manages the interactive parameter panel
  */
 export class ParameterPanel {
-    constructor(configUpdater, energyToggleCallback, heroAlphaCallback = null) {
+    constructor(configUpdater, energyToggleCallback, heroAlphaCallback = null, heroBoostCallback = null) {
         this.configUpdater = configUpdater; // Function to update config values
         this.energyToggleCallback = energyToggleCallback; // Function to toggle energy curve
         this.heroAlphaCallback = heroAlphaCallback; // Function to update hero alpha (optional)
+        this.heroBoostCallback = heroBoostCallback; // Function to update hero boost alpha (optional)
         this.showEnergyCurve = true; // Default: show energy curve
         
         this.createPanel();
@@ -139,6 +140,16 @@ export class ParameterPanel {
                     <div class="control-row">
                         <label for="hero-alpha-slider">Inertia Alpha: <span id="hero-alpha-value">0.95</span></label>
                         <input type="range" id="hero-alpha-slider" min="0" max="0.99" step="0.01" value="0.95" class="slider">
+                    </div>
+                </div>
+                
+                <!-- Hero Turbo Boost -->
+                <div class="control-group">
+                    <h4>Hero Turbo Boost</h4>
+                    
+                    <div class="control-row">
+                        <label for="hero-boost-slider">Boost Alpha: <span id="hero-boost-value">0.0</span></label>
+                        <input type="range" id="hero-boost-slider" min="0" max="4.0" step="0.1" value="0.0" class="slider">
                     </div>
                 </div>
                 
@@ -456,6 +467,19 @@ export class ParameterPanel {
                 heroAlphaValue.textContent = value.toFixed(2);
                 if (this.heroAlphaCallback) {
                     this.heroAlphaCallback(value);
+                }
+            });
+        }
+        
+        // Hero boost alpha slider
+        const heroBoostSlider = document.getElementById('hero-boost-slider');
+        const heroBoostValue = document.getElementById('hero-boost-value');
+        if (heroBoostSlider && heroBoostValue) {
+            heroBoostSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                heroBoostValue.textContent = value.toFixed(1);
+                if (this.heroBoostCallback) {
+                    this.heroBoostCallback(value);
                 }
             });
         }
