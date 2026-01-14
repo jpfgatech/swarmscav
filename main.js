@@ -2,17 +2,12 @@ import { Agent } from './Agent.js';
 import { EnergyMonitor } from './EnergyMonitor.js';
 import {
     N,
-    BASE_OMEGA,
-    OMEGA_VARIATION,
-    J,
-    K,
-    REPULSION_STRENGTH,
-    EPSILON,
-    TIME_SCALE,
     ENERGY_THRESHOLD_PER_AGENT,
     ENERGY_KILL_FRAMES,
     ENABLE_AUTO_KILL
 } from './config.js';
+import { RuntimeConfig, updateRuntimeConfig } from './runtimeConfig.js';
+import { ParameterPanel } from './ParameterPanel.js';
 
 // Canvas setup - wait for DOM to be ready
 let canvas, ctx;
@@ -44,6 +39,9 @@ const swarm = [];
 // Energy monitor for convergence detection (with configurable thresholds)
 const energyMonitor = new EnergyMonitor(600, ENERGY_THRESHOLD_PER_AGENT, ENERGY_KILL_FRAMES);
 
+// Flag to control energy curve visibility
+let showEnergyCurve = true;
+
 // Timing for frame-rate independent physics
 let lastTime = 0;
 let simulationStartTime = 0;
@@ -60,7 +58,7 @@ function initialize() {
     
     // Create agents
     for (let i = 0; i < N; i++) {
-        swarm.push(new Agent(canvas.width, canvas.height, BASE_OMEGA, OMEGA_VARIATION));
+        swarm.push(new Agent(canvas.width, canvas.height, RuntimeConfig.BASE_OMEGA, RuntimeConfig.OMEGA_VARIATION));
     }
     
     // Calculate and subtract center of mass (position)
@@ -129,8 +127,8 @@ function clear() {
 function applyRepulsionForce(agent1, agent2, dx, dy, distanceSquared) {
     // Soft core repulsion: F = (r_i - r_j) / (|r_i - r_j|^2 + epsilon) / N
     // The /N scaling is critical to prevent force explosion with large populations
-    const invDistanceSqPlusEpsilon = 1.0 / (distanceSquared + EPSILON);
-    const forceMagnitude = REPULSION_STRENGTH * invDistanceSqPlusEpsilon / N;
+    const invDistanceSqPlusEpsilon = 1.0 / (distanceSquared + RuntimeConfig.EPSILON);
+    const forceMagnitude = RuntimeConfig.REPULSION_STRENGTH * invDistanceSqPlusEpsilon / N;
     
     // Normalize direction using distanceSquared to avoid sqrt
     const invDistance = 1.0 / Math.sqrt(distanceSquared);
@@ -162,7 +160,7 @@ function applyPhaseBasedSpatialCoupling(agent1, agent2, dx, dy, distance) {
     // Coupling strength: (1 + J*cos(phaseDiff)) / N
     // The "1" provides constant global attraction (self-confinement)
     // J*cos modulates based on phase similarity
-    const couplingStrength = (1.0 + J * Math.cos(phaseDiff)) / N;
+    const couplingStrength = (1.0 + RuntimeConfig.J * Math.cos(phaseDiff)) / N;
     
     const fx = unitX * couplingStrength;
     const fy = unitY * couplingStrength;
@@ -191,7 +189,7 @@ function applyPhaseCoupling(agent1, agent2, distance) {
     // Phase coupling: K * sin(θ_j - θ_i) / |r_j - r_i| / N
     // The /N scaling is critical to prevent phase derivative explosion
     const invDistance = 1.0 / distance;
-    const phaseCoupling = K * Math.sin(phaseDiff) * invDistance / N;
+    const phaseCoupling = RuntimeConfig.K * Math.sin(phaseDiff) * invDistance / N;
     
     // Apply phase derivative (symmetric)
     agent1.addPhaseDerivative(phaseCoupling);
@@ -256,7 +254,7 @@ function updatePhysics(deltaTime) {
         window.SIMULATION_RESULT = {
             time: simulationTime,
             energy: currentEnergy,
-            params: { J, K, N }
+            params: { J: RuntimeConfig.J, K: RuntimeConfig.K, N }
         };
     }
 }
@@ -283,7 +281,7 @@ function render(currentTime) {
     lastTime = currentTime;
     
     // Apply time scale multiplier to speed up/slow down simulation
-    const deltaTime = rawDeltaTime * TIME_SCALE;
+    const deltaTime = rawDeltaTime * RuntimeConfig.TIME_SCALE;
     
     // Always update physics (computation happens every frame)
     updatePhysics(deltaTime);
@@ -307,58 +305,15 @@ function render(currentTime) {
         agent.draw(ctx);
     }
     
-    // Render energy monitor (EKG-style graph)
-    energyMonitor.render(ctx, canvas.width, canvas.height);
+    // Render energy monitor (EKG-style graph) if enabled
+    if (showEnergyCurve) {
+        energyMonitor.render(ctx, canvas.width, canvas.height);
+    }
     
     // Continue the animation loop
     requestAnimationFrame(render);
 }
 
-/**
- * Displays all simulation parameters in the HTML
- */
-function displayParameters() {
-    const paramsDiv = document.getElementById('params');
-    if (!paramsDiv) return;
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    paramsDiv.innerHTML = `
-        <h3>Simulation Parameters</h3>
-        <div class="param-row">
-            <span class="param-label">N (Agents):</span>
-            <span class="param-value">${N}</span>
-        </div>
-        <div class="param-row">
-            <span class="param-label">J (Spatial Coupling):</span>
-            <span class="param-value">${J}</span>
-        </div>
-        <div class="param-row">
-            <span class="param-label">K (Phase Coupling):</span>
-            <span class="param-value">${K}</span>
-        </div>
-        <div class="param-row">
-            <span class="param-label">Repulsion Strength:</span>
-            <span class="param-value">${REPULSION_STRENGTH}</span>
-        </div>
-        <div class="param-row">
-            <span class="param-label">Epsilon (Soft Core):</span>
-            <span class="param-value">${EPSILON}</span>
-        </div>
-        <div class="param-row">
-            <span class="param-label">Time Scale:</span>
-            <span class="param-value">${TIME_SCALE}</span>
-        </div>
-        <div class="param-row">
-            <span class="param-label">Base Omega:</span>
-            <span class="param-value">${BASE_OMEGA}</span>
-        </div>
-        <div class="param-row">
-            <span class="param-label">Omega Variation:</span>
-            <span class="param-value">${OMEGA_VARIATION}</span>
-        </div>
-    `;
-}
 
 // Initialize simulation status
 window.SIMULATION_STATUS = 'RUNNING';
@@ -367,7 +322,22 @@ window.SIMULATION_RESULT = null;
 // Initialize and start the simulation
 try {
     initialize();
-    displayParameters();
+    
+    // Initialize ParameterPanel
+    const parameterPanel = new ParameterPanel(
+        (key, value) => {
+            // Config updater callback
+            updateRuntimeConfig(key, value);
+        },
+        (show) => {
+            // Energy curve toggle callback
+            showEnergyCurve = show;
+        }
+    );
+    
+    // Initialize panel with current config values
+    parameterPanel.updateFromConfig(RuntimeConfig);
+    
     simulationStartTime = performance.now(); // Track simulation start time
     console.log('Simulation initialized successfully');
     requestAnimationFrame((time) => {
