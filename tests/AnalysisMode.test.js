@@ -167,6 +167,40 @@ describe('AnalysisMode', () => {
             const result = wrappedMode.checkGabrielCondition(wrappedAgents, canvasWidth, canvasHeight);
             expect(typeof result).toBe('boolean');
         });
+
+        it('should skip pairs with distance > 24 pixels (3x diameter constraint)', () => {
+            // Create agents that are more than 24 pixels apart
+            const farAgents = [
+                new MockAgent(100, 100, 0),
+                new MockAgent(130, 100, 0), // 30 pixels away (> 24)
+                new MockAgent(200, 200, 0)  // Far away
+            ];
+            
+            const farMode = new AnalysisMode();
+            farMode.selectedAgents.add(0);
+            farMode.selectedAgents.add(1);
+            
+            // Should return false because distance > 24, so pair is skipped
+            const result = farMode.checkGabrielCondition(farAgents, canvasWidth, canvasHeight);
+            expect(result).toBe(false);
+        });
+
+        it('should check pairs with distance <= 24 pixels', () => {
+            // Create agents that are exactly 24 pixels apart
+            const exactAgents = [
+                new MockAgent(100, 100, 0),
+                new MockAgent(124, 100, 0), // Exactly 24 pixels away
+                new MockAgent(200, 200, 0)  // Far away (not in circle)
+            ];
+            
+            const exactMode = new AnalysisMode();
+            exactMode.selectedAgents.add(0);
+            exactMode.selectedAgents.add(1);
+            
+            // Should check this pair (distance = 24, which is <= 24)
+            const result = exactMode.checkGabrielCondition(exactAgents, canvasWidth, canvasHeight);
+            expect(result).toBe(true); // No intruder, so Gabriel condition met
+        });
     });
 
     describe('clearSelection', () => {
