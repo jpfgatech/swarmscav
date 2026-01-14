@@ -12,13 +12,13 @@
     - *Constraint*: Pure JS object export. No DOM.
     - *Verify*: Manual check that the current app still runs importing from this new file.
 
-- [ ] **Refactor: Simulation State**
+- [x] **Refactor: Simulation State**
     - *Goal*: Create `src/core/SimulationState.js`.
     - *Task*: Define a class that holds `Float32Array`s for positions and velocities.
     - *Constraint*: It must have methods `getAgent(i)` and `setAgent(i, data)`.
     - *Unit Test*: Create `tests/SimulationState.test.js`. Initialize it and assert that `getAgent(0)` returns the expected initial structure.
 
-- [ ] **Refactor: Physics Engine (Pure Logic)**
+- [x] **Refactor: Physics Engine (Pure Logic)**
     - *Goal*: Create `src/core/PhysicsEngine.js`.
     - *Task*: Move the `update()` loop here. It accepts `SimulationState` and `Config` as arguments.
     - *Constraint*: **ZERO** references to `window`, `canvas`, or `context`. Strictly math only.
