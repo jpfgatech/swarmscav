@@ -260,9 +260,22 @@ function updatePhysics(deltaTime) {
         agent.update(deltaTime, canvas.width, canvas.height);
     }
     
-    // Hero inertia override (runs AFTER physics update)
+    // Hero boost override (runs AFTER physics update)
     if (heroLogic) {
         heroLogic.update(swarm, deltaTime, canvas.width, canvas.height);
+        
+        // Check win condition: Hero reaches Target (collision detection)
+        if (heroLogic.checkWinCondition(swarm, canvas.width, canvas.height)) {
+            window.SIMULATION_PAUSED = true;
+            window.GAME_STATE = 'WON';
+            console.log('Game won: Hero reached Target!');
+        } else {
+            // Check if hero and target are closest and within 3x diameter (pause condition)
+            if (heroLogic.checkHeroTargetProximity(swarm, canvas.width, canvas.height)) {
+                window.SIMULATION_PAUSED = true;
+                console.log('Simulation paused: Hero and Target are closest and within range');
+            }
+        }
     }
     
     // Check Gabriel Graph condition for selected agents

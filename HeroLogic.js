@@ -251,6 +251,46 @@ export class HeroLogic {
     }
     
     /**
+     * Checks if Hero has reached Target (win condition)
+     * Win condition: distance < (Radius_H + Radius_T)
+     * Hero and Target both have radius 6 pixels, so collision distance = 12 pixels
+     * @param {Array} agents - Array of Agent objects
+     * @param {number} canvasWidth - Canvas width (for toroidal wrapping)
+     * @param {number} canvasHeight - Canvas height (for toroidal wrapping)
+     * @returns {boolean} - True if Hero has reached Target (win condition met)
+     */
+    checkWinCondition(agents, canvasWidth, canvasHeight) {
+        if (this.heroIndex >= agents.length || this.targetIndex >= agents.length) {
+            return false;
+        }
+        
+        const hero = agents[this.heroIndex];
+        const target = agents[this.targetIndex];
+        
+        // Calculate distance with toroidal wrapping
+        let dx = target.x - hero.x;
+        let dy = target.y - hero.y;
+        
+        // Handle toroidal wrapping
+        if (Math.abs(dx) > canvasWidth / 2) {
+            dx = dx > 0 ? dx - canvasWidth : dx + canvasWidth;
+        }
+        if (Math.abs(dy) > canvasHeight / 2) {
+            dy = dy > 0 ? dy - canvasHeight : dy + canvasHeight;
+        }
+        
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Win condition: distance < (Radius_H + Radius_T)
+        // Hero radius = 6, Target radius = 6, so collision distance = 12 pixels
+        const HERO_RADIUS = 6;
+        const TARGET_RADIUS = 6;
+        const COLLISION_DISTANCE = HERO_RADIUS + TARGET_RADIUS;
+        
+        return distance < COLLISION_DISTANCE;
+    }
+    
+    /**
      * Gets the hero index
      * @returns {number} Hero agent index
      */
