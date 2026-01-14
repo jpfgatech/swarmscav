@@ -117,17 +117,6 @@ export class AnalysisMode {
                 }
                 
                 const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                // Condition: diameter must not exceed three times the agent's graphic circle diameter
-                // Agent graphic circle has radius 4, so diameter = 8
-                // Maximum allowed distance = 3 * 8 = 24
-                const AGENT_GRAPHIC_DIAMETER = 8; // radius 4 * 2
-                const MAX_DISTANCE = 3 * AGENT_GRAPHIC_DIAMETER; // 24
-                
-                if (distance > MAX_DISTANCE) {
-                    continue; // Skip this pair - too far apart
-                }
-                
                 const halfDistance = distance / 2;
                 const midX = agent1.x + dx / 2;
                 const midY = agent1.y + dy / 2;

@@ -27,7 +27,7 @@
         2. Run `engine.update()`.
         3. Assert that their positions have changed (velocity applied).
 
-- [ ] **Feature: Interactive Parameter Panel (Web)**
+- [x] **Feature: Interactive Parameter Panel (Web)**
     - *Goal*: Create a collapsible HTML overlay (`ParameterPanel.js`) to tune `Config` values in real-time.
     - *UI Requirements*:
         1.  **Coupling Controls (J & K)**:
@@ -47,9 +47,7 @@
         1.  Run `npm run dev`.
         2.  Drag `t_step` to max; verify simulation speeds up massively.
         3.  Click `J = 1024`; verify agents lock into position instantly (high force).
-        4.  Toggle the Energy Curve; verify the canvas graph appears/disappears.
-
-- [x] **Feature: Agent Selection & Proximity Pause (Game Mode)**
+        4.  Toggle the Energy Curve; verify the canvas graph appears/disappears.- [ ] **Feature: Agent Selection & Proximity Pause (Game Mode)**
     - *Goal*: Allow mouse selection of 4 agents and pause when they become topological neighbors (Gabriel Graph condition).
     - *Logic*:
         1.  **Input**: Add `canvas.addEventListener('mousedown')`. Map $(x,y)$ to nearest agent. Toggle selection state. Limit to 4.
@@ -62,4 +60,25 @@
     - *Verify*:
         1.  Click two agents.
         2.  Wait for them to drift near each other without a third party in between.
-        3.  Verify the simulation freezes instantly.
+        3.  Verify the simulation freezes instantly.- [ ] **Feature: Hero Inertia (Script-Level Override)**
+    - *Goal*: Implement player-controlled inertia for a Hero agent without modifying the core Physics Engine.
+    - *Architecture*:
+        1.  **Core**: `PhysicsEngine.update()` runs standard Overdamped dynamics ($v \propto F$) for all 500 agents.
+        2.  **Script**: `HeroLogic.js` runs *after* the core update.
+    - *Logic*:
+        -   **State**: Track `heroVelocity` separately in the script (since Overdamped core doesn't store momentum).
+        -   **On Input (Space/Touch)**:
+            -   Retrieve Hero's `currentPos` (calculated by engine) and `prevPos` (stored by script).
+            -   Calculate `engineVelocity` = `currentPos` - `prevPos`.
+            -   Calculate `blendedVelocity` = `(1 - alpha) * engineVelocity + alpha * heroVelocity`.
+            -   **Override**: `newPos` = `prevPos` + `blendedVelocity`.
+            -   Update `SimulationState` with `newPos`.
+            -   Update `heroVelocity` = `blendedVelocity` (for next frame).
+        -   **No Input**: `heroVelocity` = `engineVelocity` (Sync with physics).
+    - *UI*:
+        -   Slider: `Inertia Alpha` (0.0 - 0.99).
+        -   Visuals: Hero = Cyan, Target = Gold.
+    - *Verify*:
+        1.  Set Alpha = 0.95.
+        2.  Run sim. The Hero should move normally.
+        3.  Hold Space. The Hero should "drift" and turn slowly like a spaceship, resisting the rapid jitter of the swarm.

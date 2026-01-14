@@ -1,7 +1,9 @@
 import { Agent } from './Agent.js';
 import { EnergyMonitor } from './EnergyMonitor.js';
 import { AnalysisMode } from './AnalysisMode.js';
+import { HeroLogic } from './HeroLogic.js';
 import {
+    N,
     ENERGY_THRESHOLD_PER_AGENT,
     ENERGY_KILL_FRAMES,
     ENABLE_AUTO_KILL
@@ -42,6 +44,9 @@ const energyMonitor = new EnergyMonitor(600, ENERGY_THRESHOLD_PER_AGENT, ENERGY_
 // Analysis mode for agent selection and Gabriel Graph monitoring
 const analysisMode = new AnalysisMode();
 
+// Hero logic for player-controlled inertia
+let heroLogic = null;
+
 // Flag to control energy curve visibility
 let showEnergyCurve = true;
 
@@ -59,11 +64,8 @@ const FRAME_INTERVAL_MS = 1000 / TARGET_FPS; // ~33.33ms for 30 FPS
 function initialize() {
     swarm.length = 0; // Clear existing agents
     
-    // Use RuntimeConfig.N instead of imported N
-    const currentN = RuntimeConfig.N;
-    
     // Create agents
-    for (let i = 0; i < currentN; i++) {
+    for (let i = 0; i < N; i++) {
         swarm.push(new Agent(canvas.width, canvas.height, RuntimeConfig.BASE_OMEGA, RuntimeConfig.OMEGA_VARIATION));
     }
     
@@ -73,8 +75,8 @@ function initialize() {
         sumX += agent.x;
         sumY += agent.y;
     }
-    const centerX = sumX / currentN;
-    const centerY = sumY / currentN;
+    const centerX = sumX / N;
+    const centerY = sumY / N;
     
     // Shift all positions to center at origin
     for (const agent of swarm) {
@@ -88,8 +90,8 @@ function initialize() {
         sumVx += agent.vx;
         sumVy += agent.vy;
     }
-    const meanVx = sumVx / currentN;
-    const meanVy = sumVy / currentN;
+    const meanVx = sumVx / N;
+    const meanVy = sumVy / N;
     
     // Shift all velocities to remove mean
     for (const agent of swarm) {
@@ -106,6 +108,11 @@ function initialize() {
     }
     
     console.log(`Initialized ${swarm.length} agents (centered)`);
+    
+    // Initialize hero logic (hero is agent at index 0)
+    if (swarm.length > 0) {
+        heroLogic = new HeroLogic(0, swarm[0]);
+    }
 }
 
 /**
@@ -134,7 +141,7 @@ function applyRepulsionForce(agent1, agent2, dx, dy, distanceSquared) {
     // Soft core repulsion: F = (r_i - r_j) / (|r_i - r_j|^2 + epsilon) / N
     // The /N scaling is critical to prevent force explosion with large populations
     const invDistanceSqPlusEpsilon = 1.0 / (distanceSquared + RuntimeConfig.EPSILON);
-    const forceMagnitude = RuntimeConfig.REPULSION_STRENGTH * invDistanceSqPlusEpsilon / RuntimeConfig.N;
+    const forceMagnitude = RuntimeConfig.REPULSION_STRENGTH * invDistanceSqPlusEpsilon / N;
     
     // Normalize direction using distanceSquared to avoid sqrt
     const invDistance = 1.0 / Math.sqrt(distanceSquared);
@@ -166,7 +173,7 @@ function applyPhaseBasedSpatialCoupling(agent1, agent2, dx, dy, distance) {
     // Coupling strength: (1 + J*cos(phaseDiff)) / N
     // The "1" provides constant global attraction (self-confinement)
     // J*cos modulates based on phase similarity
-    const couplingStrength = (1.0 + RuntimeConfig.J * Math.cos(phaseDiff)) / RuntimeConfig.N;
+    const couplingStrength = (1.0 + RuntimeConfig.J * Math.cos(phaseDiff)) / N;
     
     const fx = unitX * couplingStrength;
     const fy = unitY * couplingStrength;
@@ -195,7 +202,7 @@ function applyPhaseCoupling(agent1, agent2, distance) {
     // Phase coupling: K * sin(θ_j - θ_i) / |r_j - r_i| / N
     // The /N scaling is critical to prevent phase derivative explosion
     const invDistance = 1.0 / distance;
-    const phaseCoupling = RuntimeConfig.K * Math.sin(phaseDiff) * invDistance / RuntimeConfig.N;
+    const phaseCoupling = RuntimeConfig.K * Math.sin(phaseDiff) * invDistance / N;
     
     // Apply phase derivative (symmetric)
     agent1.addPhaseDerivative(phaseCoupling);
@@ -248,6 +255,11 @@ function updatePhysics(deltaTime) {
     // Integrate: update positions, velocities, and phases
     for (const agent of swarm) {
         agent.update(deltaTime, canvas.width, canvas.height);
+    }
+    
+    // Hero inertia override (runs AFTER physics update)
+    if (heroLogic) {
+        heroLogic.update(swarm, deltaTime, canvas.width, canvas.height);
     }
     
     // Check Gabriel Graph condition for selected agents
@@ -322,6 +334,11 @@ function render(currentTime) {
         agent.draw(ctx);
     }
     
+    // Render hero with special styling (cyan, before selected agents)
+    if (heroLogic) {
+        heroLogic.renderHero(ctx, swarm);
+    }
+    
     // Render selected agents with special styling (overlay on top)
     analysisMode.renderSelectedAgents(ctx, swarm);
     
@@ -353,6 +370,12 @@ try {
         (show) => {
             // Energy curve toggle callback
             showEnergyCurve = show;
+        },
+        (alpha) => {
+            // Hero alpha callback
+            if (heroLogic) {
+                heroLogic.setAlpha(alpha);
+            }
         }
     );
     
@@ -368,6 +391,43 @@ try {
         const selectedIndex = analysisMode.handleMouseClick(mouseX, mouseY, swarm, canvas.width, canvas.height);
         if (selectedIndex !== null) {
             console.log(`Agent ${selectedIndex} ${analysisMode.selectedAgents.has(selectedIndex) ? 'selected' : 'deselected'}`);
+        }
+    });
+    
+    // Add keyboard input handler for Space key (hero inertia activation)
+    let spaceKeyPressed = false;
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && !spaceKeyPressed) {
+            e.preventDefault();
+            spaceKeyPressed = true;
+            if (heroLogic) {
+                heroLogic.setInputActive(true);
+            }
+        }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+        if (e.code === 'Space') {
+            e.preventDefault();
+            spaceKeyPressed = false;
+            if (heroLogic) {
+                heroLogic.setInputActive(false);
+            }
+        }
+    });
+    
+    // Add touch support for mobile
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (heroLogic) {
+            heroLogic.setInputActive(true);
+        }
+    });
+    
+    canvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        if (heroLogic) {
+            heroLogic.setInputActive(false);
         }
     });
     
