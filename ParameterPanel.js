@@ -47,9 +47,10 @@ export function unmapLogScale(value, min, max) {
  * Creates and manages the interactive parameter panel
  */
 export class ParameterPanel {
-    constructor(configUpdater, energyToggleCallback) {
+    constructor(configUpdater, energyToggleCallback, heroAlphaCallback) {
         this.configUpdater = configUpdater; // Function to update config values
         this.energyToggleCallback = energyToggleCallback; // Function to toggle energy curve
+        this.heroAlphaCallback = heroAlphaCallback; // Function to update hero alpha
         this.showEnergyCurve = true; // Default: show energy curve
         
         this.createPanel();
