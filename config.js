@@ -32,8 +32,8 @@ export const N = getUrlParam('N', DefaultConfig.N);
 // ============================================================================
 // Initial Conditions
 // ============================================================================
-export const BASE_OMEGA = DefaultConfig.BASE_OMEGA; // Not configurable via URL
-export const OMEGA_VARIATION = DefaultConfig.OMEGA_VARIATION; // Not configurable via URL
+export const BASE_OMEGA = getUrlParam('BASE_OMEGA', DefaultConfig.BASE_OMEGA);
+export const OMEGA_VARIATION = getUrlParam('OMEGA_VARIATION', DefaultConfig.OMEGA_VARIATION);
 
 // ============================================================================
 // Swarmalator Coupling Constants
@@ -92,7 +92,7 @@ export const K = getUrlParam('K', DefaultConfig.K);
  * The attraction term has constant strength (infinite range), so repulsion needs to dominate at close distances
  */
 export const REPULSION_STRENGTH = getUrlParam('REP', DefaultConfig.REPULSION_STRENGTH);
-export const EPSILON = DefaultConfig.EPSILON; // Not configurable via URL
+export const EPSILON = getUrlParam('EPSILON', DefaultConfig.EPSILON);
 
 // ============================================================================
 // Dynamics
@@ -102,7 +102,7 @@ export const EPSILON = DefaultConfig.EPSILON; // Not configurable via URL
  * Time Scale Multiplier
  * Speeds up or slows down the entire simulation
  */
-export const TIME_SCALE = DefaultConfig.TIME_SCALE; // Not configurable via URL
+export const TIME_SCALE = getUrlParam('TIME_SCALE', DefaultConfig.TIME_SCALE);
 
 // ============================================================================
 // Energy Monitor (Auto-Kill Optimization)
