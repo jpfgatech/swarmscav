@@ -1,9 +1,11 @@
 /**
  * Swarmalator Simulation Configuration
  * 
- * This file contains all tunable parameters for the swarmalator simulation.
+ * This file applies URL parameter overrides to the pure Config object.
  * Parameters can be overridden via URL query parameters (e.g., ?J=1.0&K=-1.0)
  */
+
+import { Config as DefaultConfig } from './src/core/Config.js';
 
 // Helper function to get URL parameter or return default
 function getUrlParam(name, defaultValue) {
@@ -25,15 +27,13 @@ function getUrlParamBool(name, defaultValue) {
 // ============================================================================
 // Agent Population
 // ============================================================================
-export const N = getUrlParam('N', 200); // Number of agents
+export const N = getUrlParam('N', DefaultConfig.N);
 
 // ============================================================================
 // Initial Conditions
 // ============================================================================
-// Phase dynamics
-export const BASE_OMEGA = 0.1; // Common base intrinsic frequency for all agents
-export const OMEGA_VARIATION = 0.0; // Random variation range for omega
-// Each agent gets: omega = BASE_OMEGA ± OMEGA_VARIATION
+export const BASE_OMEGA = DefaultConfig.BASE_OMEGA; // Not configurable via URL
+export const OMEGA_VARIATION = DefaultConfig.OMEGA_VARIATION; // Not configurable via URL
 
 // ============================================================================
 // Swarmalator Coupling Constants
@@ -58,7 +58,7 @@ export const OMEGA_VARIATION = 0.0; // Random variation range for omega
  *   - No phase-based spatial coupling
  *   - Spatial forces depend only on repulsion and well forces
  */
-export const J = getUrlParam('J', 2.0);
+export const J = getUrlParam('J', DefaultConfig.J);
 
 /**
  * K - Phase Coupling Constant (Spatial-based phase synchronization)
@@ -79,7 +79,7 @@ export const J = getUrlParam('J', 2.0);
  *   - No phase coupling between agents
  *   - Phases evolve only based on intrinsic frequency (omega)
  */
-export const K = getUrlParam('K', -1.00);
+export const K = getUrlParam('K', DefaultConfig.K);
 
 // ============================================================================
 // Spatial Forces
@@ -91,8 +91,8 @@ export const K = getUrlParam('K', -1.00);
  * NOTE: Must be significantly larger than attraction strength to prevent collapse
  * The attraction term has constant strength (infinite range), so repulsion needs to dominate at close distances
  */
-export const REPULSION_STRENGTH = getUrlParam('REP', 4000.0); // Repulsion force multiplier (scaled for 800x600 canvas)
-export const EPSILON = 4.0; // Softening parameter to prevent singularity at r=0 (scaled for 800x600 canvas)
+export const REPULSION_STRENGTH = getUrlParam('REP', DefaultConfig.REPULSION_STRENGTH);
+export const EPSILON = DefaultConfig.EPSILON; // Not configurable via URL
 
 // ============================================================================
 // Dynamics
@@ -102,7 +102,7 @@ export const EPSILON = 4.0; // Softening parameter to prevent singularity at r=0
  * Time Scale Multiplier
  * Speeds up or slows down the entire simulation
  */
-export const TIME_SCALE = 100.0; // 1.0 = normal speed, > 1.0 = faster, < 1.0 = slower
+export const TIME_SCALE = DefaultConfig.TIME_SCALE; // Not configurable via URL
 
 // ============================================================================
 // Energy Monitor (Auto-Kill Optimization)
@@ -113,17 +113,17 @@ export const TIME_SCALE = 100.0; // 1.0 = normal speed, > 1.0 = faster, < 1.0 = 
  * When average kinetic energy per agent falls below this value for ENERGY_KILL_FRAMES
  * consecutive frames, the simulation is considered "dead" (reached equilibrium)
  */
-export const ENERGY_THRESHOLD_PER_AGENT = getUrlParam('ENERGY_THRESHOLD', 0.001);
+export const ENERGY_THRESHOLD_PER_AGENT = getUrlParam('ENERGY_THRESHOLD', DefaultConfig.ENERGY_THRESHOLD_PER_AGENT);
 
 /**
  * Number of consecutive frames below threshold required to trigger auto-kill
  * At 30 FPS, default of 30 frames = 1 second of low energy
  */
-export const ENERGY_KILL_FRAMES = getUrlParam('ENERGY_KILL_FRAMES', 30);
+export const ENERGY_KILL_FRAMES = getUrlParam('ENERGY_KILL_FRAMES', DefaultConfig.ENERGY_KILL_FRAMES);
 
 /**
  * Enable auto-kill optimization (only active in batch mode)
  * When false, simulation continues even if equilibrium is reached (for dev mode)
  * Default: false (disabled in dev mode)
  */
-export const ENABLE_AUTO_KILL = getUrlParamBool('ENABLE_AUTO_KILL', false);
+export const ENABLE_AUTO_KILL = getUrlParamBool('ENABLE_AUTO_KILL', DefaultConfig.ENABLE_AUTO_KILL);
