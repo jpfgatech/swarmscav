@@ -64,8 +64,11 @@ const FRAME_INTERVAL_MS = 1000 / TARGET_FPS; // ~33.33ms for 30 FPS
 function initialize() {
     swarm.length = 0; // Clear existing agents
     
+    // Use RuntimeConfig.N to support URL parameter overrides (batch mode)
+    const currentN = RuntimeConfig.N;
+    
     // Create agents
-    for (let i = 0; i < N; i++) {
+    for (let i = 0; i < currentN; i++) {
         swarm.push(new Agent(canvas.width, canvas.height, RuntimeConfig.BASE_OMEGA, RuntimeConfig.OMEGA_VARIATION));
     }
     
@@ -75,8 +78,8 @@ function initialize() {
         sumX += agent.x;
         sumY += agent.y;
     }
-    const centerX = sumX / N;
-    const centerY = sumY / N;
+    const centerX = sumX / currentN;
+    const centerY = sumY / currentN;
     
     // Shift all positions to center at origin
     for (const agent of swarm) {
@@ -362,6 +365,7 @@ try {
     initialize();
     
     // Initialize ParameterPanel
+    // Note: heroLogic is initialized in initialize() above, so it's available here
     const parameterPanel = new ParameterPanel(
         (key, value) => {
             // Config updater callback

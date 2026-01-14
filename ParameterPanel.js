@@ -47,16 +47,22 @@ export function unmapLogScale(value, min, max) {
  * Creates and manages the interactive parameter panel
  */
 export class ParameterPanel {
-    constructor(configUpdater, energyToggleCallback, heroAlphaCallback) {
+    constructor(configUpdater, energyToggleCallback, heroAlphaCallback = null) {
         this.configUpdater = configUpdater; // Function to update config values
         this.energyToggleCallback = energyToggleCallback; // Function to toggle energy curve
-        this.heroAlphaCallback = heroAlphaCallback; // Function to update hero alpha
+        this.heroAlphaCallback = heroAlphaCallback; // Function to update hero alpha (optional)
         this.showEnergyCurve = true; // Default: show energy curve
         
         this.createPanel();
     }
     
     createPanel() {
+        // Remove existing panel if it exists
+        const existing = document.getElementById('parameter-panel');
+        if (existing) {
+            existing.remove();
+        }
+        
         // Create panel container
         const panel = document.createElement('div');
         panel.id = 'parameter-panel';
@@ -322,8 +328,26 @@ export class ParameterPanel {
         `;
         document.head.appendChild(style);
         
-        // Insert panel into body
-        document.body.appendChild(panel);
+        // Insert panel into body (ensure body exists)
+        if (document.body) {
+            document.body.appendChild(panel);
+        } else {
+            // If body doesn't exist yet, wait for DOMContentLoaded
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    if (document.body) {
+                        document.body.appendChild(panel);
+                    }
+                });
+            } else {
+                // Fallback: append when body is available
+                setTimeout(() => {
+                    if (document.body) {
+                        document.body.appendChild(panel);
+                    }
+                }, 0);
+            }
+        }
         
         // Set up event listeners
         this.setupEventListeners();
