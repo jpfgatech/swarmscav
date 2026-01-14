@@ -6,10 +6,12 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "batch": "node batch_runner.js"
+    "batch": "node batch_runner.js",
+    "test": "vitest"
   },
   "devDependencies": {
-    "vite": "^5.0.0"
+    "vite": "^5.0.0",
+    "vitest": "^4.0.17"
   },
   "dependencies": {
     "jimp": "^0.22.10",

@@ -1,7 +1,7 @@
 # Swarmalator Refactor & Migration Roadmap
 
 ## Phase 0: Infrastructure & Safety
-- [ ] **Infra: Setup Test Runner**
+- [x] **Infra: Setup Test Runner**
     - *Goal*: Install `vitest` (fast, no config needed) or `jest`.
     - *Task*: Add a "test" script to `package.json`.
     - *Verify*: Create a dummy `sum.test.js` (1+1=2) and run `npm test`. It must pass.
