@@ -1,7 +1,7 @@
 import { Agent } from './Agent.js';
 import { EnergyMonitor } from './EnergyMonitor.js';
+import { AnalysisMode } from './AnalysisMode.js';
 import {
-    N,
     ENERGY_THRESHOLD_PER_AGENT,
     ENERGY_KILL_FRAMES,
     ENABLE_AUTO_KILL
@@ -39,6 +39,9 @@ const swarm = [];
 // Energy monitor for convergence detection (with configurable thresholds)
 const energyMonitor = new EnergyMonitor(600, ENERGY_THRESHOLD_PER_AGENT, ENERGY_KILL_FRAMES);
 
+// Analysis mode for agent selection and Gabriel Graph monitoring
+const analysisMode = new AnalysisMode();
+
 // Flag to control energy curve visibility
 let showEnergyCurve = true;
 
@@ -56,8 +59,11 @@ const FRAME_INTERVAL_MS = 1000 / TARGET_FPS; // ~33.33ms for 30 FPS
 function initialize() {
     swarm.length = 0; // Clear existing agents
     
+    // Use RuntimeConfig.N instead of imported N
+    const currentN = RuntimeConfig.N;
+    
     // Create agents
-    for (let i = 0; i < N; i++) {
+    for (let i = 0; i < currentN; i++) {
         swarm.push(new Agent(canvas.width, canvas.height, RuntimeConfig.BASE_OMEGA, RuntimeConfig.OMEGA_VARIATION));
     }
     
@@ -67,8 +73,8 @@ function initialize() {
         sumX += agent.x;
         sumY += agent.y;
     }
-    const centerX = sumX / N;
-    const centerY = sumY / N;
+    const centerX = sumX / currentN;
+    const centerY = sumY / currentN;
     
     // Shift all positions to center at origin
     for (const agent of swarm) {
@@ -82,8 +88,8 @@ function initialize() {
         sumVx += agent.vx;
         sumVy += agent.vy;
     }
-    const meanVx = sumVx / N;
-    const meanVy = sumVy / N;
+    const meanVx = sumVx / currentN;
+    const meanVy = sumVy / currentN;
     
     // Shift all velocities to remove mean
     for (const agent of swarm) {
@@ -128,7 +134,7 @@ function applyRepulsionForce(agent1, agent2, dx, dy, distanceSquared) {
     // Soft core repulsion: F = (r_i - r_j) / (|r_i - r_j|^2 + epsilon) / N
     // The /N scaling is critical to prevent force explosion with large populations
     const invDistanceSqPlusEpsilon = 1.0 / (distanceSquared + RuntimeConfig.EPSILON);
-    const forceMagnitude = RuntimeConfig.REPULSION_STRENGTH * invDistanceSqPlusEpsilon / N;
+    const forceMagnitude = RuntimeConfig.REPULSION_STRENGTH * invDistanceSqPlusEpsilon / RuntimeConfig.N;
     
     // Normalize direction using distanceSquared to avoid sqrt
     const invDistance = 1.0 / Math.sqrt(distanceSquared);
@@ -160,7 +166,7 @@ function applyPhaseBasedSpatialCoupling(agent1, agent2, dx, dy, distance) {
     // Coupling strength: (1 + J*cos(phaseDiff)) / N
     // The "1" provides constant global attraction (self-confinement)
     // J*cos modulates based on phase similarity
-    const couplingStrength = (1.0 + RuntimeConfig.J * Math.cos(phaseDiff)) / N;
+    const couplingStrength = (1.0 + RuntimeConfig.J * Math.cos(phaseDiff)) / RuntimeConfig.N;
     
     const fx = unitX * couplingStrength;
     const fy = unitY * couplingStrength;
@@ -189,7 +195,7 @@ function applyPhaseCoupling(agent1, agent2, distance) {
     // Phase coupling: K * sin(θ_j - θ_i) / |r_j - r_i| / N
     // The /N scaling is critical to prevent phase derivative explosion
     const invDistance = 1.0 / distance;
-    const phaseCoupling = RuntimeConfig.K * Math.sin(phaseDiff) * invDistance / N;
+    const phaseCoupling = RuntimeConfig.K * Math.sin(phaseDiff) * invDistance / RuntimeConfig.N;
     
     // Apply phase derivative (symmetric)
     agent1.addPhaseDerivative(phaseCoupling);
@@ -244,6 +250,15 @@ function updatePhysics(deltaTime) {
         agent.update(deltaTime, canvas.width, canvas.height);
     }
     
+    // Check Gabriel Graph condition for selected agents
+    if (analysisMode.getSelectionCount() >= 2) {
+        const shouldPause = analysisMode.checkGabrielCondition(swarm, canvas.width, canvas.height);
+        if (shouldPause) {
+            analysisMode.isPaused = true;
+            window.SIMULATION_PAUSED = true;
+        }
+    }
+    
     // Measure kinetic energy and check for convergence
     const currentEnergy = energyMonitor.measure(swarm);
     
@@ -283,8 +298,10 @@ function render(currentTime) {
     // Apply time scale multiplier to speed up/slow down simulation
     const deltaTime = rawDeltaTime * RuntimeConfig.TIME_SCALE;
     
-    // Always update physics (computation happens every frame)
-    updatePhysics(deltaTime);
+    // Update physics only if not paused
+    if (!analysisMode.isPaused && !window.SIMULATION_PAUSED) {
+        updatePhysics(deltaTime);
+    }
     
     // Check if simulation is dead (reached equilibrium) - only stop rendering in batch mode
     if (ENABLE_AUTO_KILL && window.SIMULATION_STATUS === 'DEAD') {
@@ -305,6 +322,9 @@ function render(currentTime) {
         agent.draw(ctx);
     }
     
+    // Render selected agents with special styling (overlay on top)
+    analysisMode.renderSelectedAgents(ctx, swarm);
+    
     // Render energy monitor (EKG-style graph) if enabled
     if (showEnergyCurve) {
         energyMonitor.render(ctx, canvas.width, canvas.height);
@@ -318,6 +338,7 @@ function render(currentTime) {
 // Initialize simulation status
 window.SIMULATION_STATUS = 'RUNNING';
 window.SIMULATION_RESULT = null;
+window.SIMULATION_PAUSED = false;
 
 // Initialize and start the simulation
 try {
@@ -337,6 +358,18 @@ try {
     
     // Initialize panel with current config values
     parameterPanel.updateFromConfig(RuntimeConfig);
+    
+    // Add mouse click handler for agent selection
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        const selectedIndex = analysisMode.handleMouseClick(mouseX, mouseY, swarm, canvas.width, canvas.height);
+        if (selectedIndex !== null) {
+            console.log(`Agent ${selectedIndex} ${analysisMode.selectedAgents.has(selectedIndex) ? 'selected' : 'deselected'}`);
+        }
+    });
     
     simulationStartTime = performance.now(); // Track simulation start time
     console.log('Simulation initialized successfully');

@@ -45,6 +45,7 @@ function getUrlParamBool(name, defaultValue) {
  */
 export const RuntimeConfig = {
     // These are mutable and can be updated
+    N: getUrlParam('N', N),
     J: getUrlParam('J', INIT_J),
     K: getUrlParam('K', INIT_K),
     BASE_OMEGA: getUrlParam('BASE_OMEGA', INIT_BASE_OMEGA),
@@ -54,7 +55,6 @@ export const RuntimeConfig = {
     REPULSION_STRENGTH: getUrlParam('REP', INIT_REPULSION_STRENGTH),
     
     // These are read-only (from config.js, with URL override for batch)
-    N: getUrlParam('N', N),
     ENERGY_THRESHOLD_PER_AGENT: getUrlParam('ENERGY_THRESHOLD', ENERGY_THRESHOLD_PER_AGENT),
     ENERGY_KILL_FRAMES: getUrlParam('ENERGY_KILL_FRAMES', ENERGY_KILL_FRAMES),
     ENABLE_AUTO_KILL: getUrlParamBool('ENABLE_AUTO_KILL', ENABLE_AUTO_KILL)
@@ -64,12 +64,16 @@ export const RuntimeConfig = {
  * Updates a runtime config value
  * @param {string} key - Config key to update
  * @param {number} value - New value
+ * @returns {boolean} - True if value was updated, false otherwise
  */
 export function updateRuntimeConfig(key, value) {
     if (key in RuntimeConfig && typeof RuntimeConfig[key] === 'number') {
+        const oldValue = RuntimeConfig[key];
         RuntimeConfig[key] = value;
-        console.log(`Updated ${key} to ${value}`);
+        console.log(`Updated ${key} from ${oldValue} to ${value}`);
+        return true;
     } else {
         console.warn(`Cannot update ${key}: not a mutable config value`);
+        return false;
     }
 }

@@ -47,9 +47,10 @@ export function unmapLogScale(value, min, max) {
  * Creates and manages the interactive parameter panel
  */
 export class ParameterPanel {
-    constructor(configUpdater, energyToggleCallback) {
+    constructor(configUpdater, energyToggleCallback, resetCallback) {
         this.configUpdater = configUpdater; // Function to update config values
         this.energyToggleCallback = energyToggleCallback; // Function to toggle energy curve
+        this.resetCallback = resetCallback; // Function to reset simulation with new N
         this.showEnergyCurve = true; // Default: show energy curve
         
         this.createPanel();
@@ -65,6 +66,20 @@ export class ParameterPanel {
                 <button id="panel-toggle" class="panel-toggle">−</button>
             </div>
             <div class="panel-content" id="panel-content">
+                <!-- Population -->
+                <div class="control-group">
+                    <h4>Population</h4>
+                    
+                    <div class="control-row">
+                        <label>Reset with N =</label>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-param="N" data-value="200">200</button>
+                            <button class="preset-btn" data-param="N" data-value="300">300</button>
+                            <button class="preset-btn" data-param="N" data-value="400">400</button>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Coupling Controls -->
                 <div class="control-group">
                     <h4>Coupling Constants</h4>
@@ -382,33 +397,42 @@ export class ParameterPanel {
             this.configUpdater('OMEGA_VARIATION', variation);
         });
         
-        // Preset buttons for J and K
+        // Preset buttons for J, K, and N
         document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const param = e.target.dataset.param;
-                const absValue = parseFloat(e.target.dataset.value);
-                const sign = e.target.dataset.sign;
+                const valueStr = e.target.dataset.value;
                 
-                // Apply sign to value
-                const newValue = sign === '+' ? absValue : -absValue;
-                
-                // Update slider and value display
-                const slider = document.getElementById(`${param.toLowerCase()}-slider`);
-                const valueSpan = document.getElementById(`${param.toLowerCase()}-value`);
-                
-                // For extreme values like ±1024, don't clamp - allow them to exceed slider range
-                // The slider itself is limited to -2 to 2, but config can accept any value
-                if (Math.abs(newValue) <= 2) {
-                    slider.value = newValue;
-                    valueSpan.textContent = newValue.toFixed(2);
+                if (param === 'N') {
+                    // N reset button - triggers reinitialization
+                    const newN = parseInt(valueStr, 10);
+                    this.configUpdater('N', newN, true); // Pass true to indicate reset needed
                 } else {
-                    // For extreme values, update display but keep slider at limit
-                    slider.value = newValue > 0 ? 2 : -2;
-                    valueSpan.textContent = newValue.toFixed(0);
+                    // J or K preset button
+                    const absValue = parseFloat(valueStr);
+                    const sign = e.target.dataset.sign;
+                    
+                    // Apply sign to value
+                    const newValue = sign === '+' ? absValue : -absValue;
+                    
+                    // Update slider and value display
+                    const slider = document.getElementById(`${param.toLowerCase()}-slider`);
+                    const valueSpan = document.getElementById(`${param.toLowerCase()}-value`);
+                    
+                    // For extreme values like ±1024, don't clamp - allow them to exceed slider range
+                    // The slider itself is limited to -2 to 2, but config can accept any value
+                    if (Math.abs(newValue) <= 2) {
+                        slider.value = newValue;
+                        valueSpan.textContent = newValue.toFixed(2);
+                    } else {
+                        // For extreme values, update display but keep slider at limit
+                        slider.value = newValue > 0 ? 2 : -2;
+                        valueSpan.textContent = newValue.toFixed(0);
+                    }
+                    
+                    // Update config with actual value (not clamped)
+                    this.configUpdater(param, newValue);
                 }
-                
-                // Update config with actual value (not clamped)
-                this.configUpdater(param, newValue);
             });
         });
         

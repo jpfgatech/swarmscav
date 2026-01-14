@@ -47,7 +47,9 @@
         1.  Run `npm run dev`.
         2.  Drag `t_step` to max; verify simulation speeds up massively.
         3.  Click `J = 1024`; verify agents lock into position instantly (high force).
-        4.  Toggle the Energy Curve; verify the canvas graph appears/disappears.- [ ] **Feature: Agent Selection & Proximity Pause (Game Mode)**
+        4.  Toggle the Energy Curve; verify the canvas graph appears/disappears.
+
+- [x] **Feature: Agent Selection & Proximity Pause (Game Mode)**
     - *Goal*: Allow mouse selection of 4 agents and pause when they become topological neighbors (Gabriel Graph condition).
     - *Logic*:
         1.  **Input**: Add `canvas.addEventListener('mousedown')`. Map $(x,y)$ to nearest agent. Toggle selection state. Limit to 4.
