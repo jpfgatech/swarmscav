@@ -90,8 +90,8 @@ function initialize() {
         sumVx += agent.vx;
         sumVy += agent.vy;
     }
-    const meanVx = sumVx / N;
-    const meanVy = sumVy / N;
+    const meanVx = sumVx / currentN;
+    const meanVy = sumVy / currentN;
     
     // Shift all velocities to remove mean
     for (const agent of swarm) {
@@ -141,7 +141,7 @@ function applyRepulsionForce(agent1, agent2, dx, dy, distanceSquared) {
     // Soft core repulsion: F = (r_i - r_j) / (|r_i - r_j|^2 + epsilon) / N
     // The /N scaling is critical to prevent force explosion with large populations
     const invDistanceSqPlusEpsilon = 1.0 / (distanceSquared + RuntimeConfig.EPSILON);
-    const forceMagnitude = RuntimeConfig.REPULSION_STRENGTH * invDistanceSqPlusEpsilon / N;
+    const forceMagnitude = RuntimeConfig.REPULSION_STRENGTH * invDistanceSqPlusEpsilon / RuntimeConfig.N;
     
     // Normalize direction using distanceSquared to avoid sqrt
     const invDistance = 1.0 / Math.sqrt(distanceSquared);
@@ -173,7 +173,7 @@ function applyPhaseBasedSpatialCoupling(agent1, agent2, dx, dy, distance) {
     // Coupling strength: (1 + J*cos(phaseDiff)) / N
     // The "1" provides constant global attraction (self-confinement)
     // J*cos modulates based on phase similarity
-    const couplingStrength = (1.0 + RuntimeConfig.J * Math.cos(phaseDiff)) / N;
+    const couplingStrength = (1.0 + RuntimeConfig.J * Math.cos(phaseDiff)) / RuntimeConfig.N;
     
     const fx = unitX * couplingStrength;
     const fy = unitY * couplingStrength;
@@ -202,7 +202,7 @@ function applyPhaseCoupling(agent1, agent2, distance) {
     // Phase coupling: K * sin(θ_j - θ_i) / |r_j - r_i| / N
     // The /N scaling is critical to prevent phase derivative explosion
     const invDistance = 1.0 / distance;
-    const phaseCoupling = RuntimeConfig.K * Math.sin(phaseDiff) * invDistance / N;
+    const phaseCoupling = RuntimeConfig.K * Math.sin(phaseDiff) * invDistance / RuntimeConfig.N;
     
     // Apply phase derivative (symmetric)
     agent1.addPhaseDerivative(phaseCoupling);
