@@ -133,23 +133,13 @@ export class ParameterPanel {
                     </div>
                 </div>
                 
-                <!-- Hero Inertia -->
-                <div class="control-group">
-                    <h4>Hero Inertia</h4>
-                    
-                    <div class="control-row">
-                        <label for="hero-alpha-slider">Inertia Alpha: <span id="hero-alpha-value">0.95</span></label>
-                        <input type="range" id="hero-alpha-slider" min="0" max="0.99" step="0.01" value="0.95" class="slider">
-                    </div>
-                </div>
-                
                 <!-- Hero Turbo Boost -->
                 <div class="control-group">
                     <h4>Hero Turbo Boost</h4>
                     
                     <div class="control-row">
-                        <label for="hero-boost-slider">Boost Alpha: <span id="hero-boost-value">0.0</span></label>
-                        <input type="range" id="hero-boost-slider" min="0" max="4.0" step="0.1" value="0.0" class="slider">
+                        <label for="hero-boost-slider">Boost Factor: <span id="hero-boost-value">1.0</span></label>
+                        <input type="range" id="hero-boost-slider" min="1" max="16" step="0.1" value="1.0" class="slider">
                     </div>
                 </div>
                 
@@ -458,20 +448,7 @@ export class ParameterPanel {
             });
         });
         
-        // Hero alpha slider
-        const heroAlphaSlider = document.getElementById('hero-alpha-slider');
-        const heroAlphaValue = document.getElementById('hero-alpha-value');
-        if (heroAlphaSlider && heroAlphaValue) {
-            heroAlphaSlider.addEventListener('input', (e) => {
-                const value = parseFloat(e.target.value);
-                heroAlphaValue.textContent = value.toFixed(2);
-                if (this.heroAlphaCallback) {
-                    this.heroAlphaCallback(value);
-                }
-            });
-        }
-        
-        // Hero boost alpha slider
+        // Hero boost factor slider
         const heroBoostSlider = document.getElementById('hero-boost-slider');
         const heroBoostValue = document.getElementById('hero-boost-value');
         if (heroBoostSlider && heroBoostValue) {

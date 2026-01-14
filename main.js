@@ -340,6 +340,7 @@ function render(currentTime) {
     // Render hero with special styling (cyan, before selected agents)
     if (heroLogic) {
         heroLogic.renderHero(ctx, swarm);
+        heroLogic.renderTarget(ctx, swarm);
     }
     
     // Render selected agents with special styling (overlay on top)
@@ -375,14 +376,8 @@ try {
             // Energy curve toggle callback
             showEnergyCurve = show;
         },
-        (alpha) => {
-            // Hero alpha callback (inertia)
-            if (heroLogic) {
-                heroLogic.setAlpha(alpha);
-            }
-        },
         (boostAlpha) => {
-            // Hero boost alpha callback (turbo boost)
+            // Hero boost factor callback
             if (heroLogic) {
                 heroLogic.setBoostAlpha(boostAlpha);
             }

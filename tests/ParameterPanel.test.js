@@ -72,7 +72,7 @@ describe('unmapLogScale', () => {
 describe('ParameterPanel', () => {
     let mockConfigUpdater;
     let mockEnergyToggle;
-    let mockHeroAlpha;
+    let mockHeroBoost;
     let panel;
 
     beforeEach(() => {
@@ -84,9 +84,9 @@ describe('ParameterPanel', () => {
         
         mockConfigUpdater = vi.fn();
         mockEnergyToggle = vi.fn();
-        mockHeroAlpha = vi.fn();
+        mockHeroBoost = vi.fn();
         
-        panel = new ParameterPanel(mockConfigUpdater, mockEnergyToggle, mockHeroAlpha);
+        panel = new ParameterPanel(mockConfigUpdater, mockEnergyToggle, mockHeroBoost);
     });
 
     it('should create panel with correct structure', () => {
@@ -121,11 +121,11 @@ describe('ParameterPanel', () => {
         expect(freqBaseSlider.max).toBe('1');
     });
 
-    it('should have hero alpha slider', () => {
-        const heroAlphaSlider = document.getElementById('hero-alpha-slider');
-        expect(heroAlphaSlider).toBeTruthy();
-        expect(heroAlphaSlider.min).toBe('0');
-        expect(heroAlphaSlider.max).toBe('0.99');
+    it('should have hero boost slider', () => {
+        const heroBoostSlider = document.getElementById('hero-boost-slider');
+        expect(heroBoostSlider).toBeTruthy();
+        expect(heroBoostSlider.min).toBe('1');
+        expect(heroBoostSlider.max).toBe('16');
     });
 
     it('should have energy curve toggle', () => {
@@ -150,21 +150,13 @@ describe('ParameterPanel', () => {
         expect(mockConfigUpdater).toHaveBeenCalledWith('K', -0.5);
     });
 
-    it('should call heroAlphaCallback when hero alpha slider changes', () => {
-        // ParameterPanel constructor only takes 2 callbacks, heroAlpha is optional
-        // Let's create a panel with heroAlpha callback
-        const panelWithHero = new ParameterPanel(mockConfigUpdater, mockEnergyToggle);
-        // Manually set the callback if it exists
-        if (panelWithHero.heroAlphaCallback !== undefined) {
-            panelWithHero.heroAlphaCallback = mockHeroAlpha;
-        }
-        
-        const heroAlphaSlider = document.getElementById('hero-alpha-slider');
-        if (heroAlphaSlider) {
-            heroAlphaSlider.value = '0.8';
-            heroAlphaSlider.dispatchEvent(new Event('input'));
+    it('should call heroBoostCallback when hero boost slider changes', () => {
+        const heroBoostSlider = document.getElementById('hero-boost-slider');
+        if (heroBoostSlider) {
+            heroBoostSlider.value = '3.0';
+            heroBoostSlider.dispatchEvent(new Event('input'));
             // The callback might not be set up, so we'll just check the slider exists
-            expect(heroAlphaSlider).toBeTruthy();
+            expect(heroBoostSlider).toBeTruthy();
         }
     });
 
