@@ -212,9 +212,10 @@ function applyPhaseCoupling(agent1, agent2, distance) {
 
 /**
  * Physics update step: calculates all forces and integrates motion
- * @param {number} deltaTime - Time step for integration
+ * @param {number} deltaTime - Time step for integration (scaled by TIME_SCALE)
+ * @param {number} realDeltaTime - Real time step in seconds (unscaled, for stamina system)
  */
-function updatePhysics(deltaTime) {
+function updatePhysics(deltaTime, realDeltaTime) {
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     
@@ -259,8 +260,9 @@ function updatePhysics(deltaTime) {
     }
     
     // Hero anchor override (runs AFTER physics update)
+    // Use realDeltaTime for stamina system (should be in real seconds, not scaled)
     if (heroLogic) {
-        heroLogic.update(swarm, deltaTime, canvas.width, canvas.height);
+        heroLogic.update(swarm, realDeltaTime, canvas.width, canvas.height);
         
         // Check win condition: Hero reaches Target (collision detection)
         if (heroLogic.checkWinCondition(swarm, canvas.width, canvas.height)) {
@@ -319,7 +321,7 @@ function render(currentTime) {
     
     // Update physics only if not paused
     if (!window.SIMULATION_PAUSED) {
-        updatePhysics(deltaTime);
+        updatePhysics(deltaTime, rawDeltaTime); // Pass both scaled and unscaled time
     }
     
     // Check if simulation is dead (reached equilibrium) - only stop rendering in batch mode
@@ -348,6 +350,11 @@ function render(currentTime) {
         if (i !== 0 && i !== 1) {
             swarm[i].draw(ctx);
         }
+    }
+    
+    // Render stamina bar (on top of simulation, before hero/target)
+    if (heroLogic) {
+        heroLogic.renderStaminaBar(ctx, canvas.width, canvas.height);
     }
     
     // Render hero with phase-based color (after color update)

@@ -50,6 +50,12 @@ describe('HeroLogic', () => {
             expect(heroLogic.targetIndex).toBe(1);
         });
 
+        it('should initialize with full stamina', () => {
+            expect(heroLogic.currentStamina).toBe(2.0);
+            expect(heroLogic.maxStamina).toBe(2.0);
+            expect(heroLogic.isExhausted).toBe(false);
+        });
+
         it('should handle null initial agent', () => {
             const logic = new HeroLogic(0, null);
             expect(logic.prevPos.x).toBe(0);
@@ -85,6 +91,40 @@ describe('HeroLogic', () => {
             expect(heroLogic.prevPos.x).toBe(410);
             expect(heroLogic.prevPos.y).toBe(310);
         });
+
+        it('should regenerate stamina when anchor inactive', () => {
+            heroLogic.currentStamina = 1.0; // Low stamina
+            heroLogic.isExhausted = false;
+            heroLogic.setInputActive(false);
+            
+            heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
+            
+            expect(heroLogic.currentStamina).toBeGreaterThan(1.0);
+        });
+
+        it('should regenerate stamina when exhausted even if input active', () => {
+            heroLogic.currentStamina = 0;
+            heroLogic.isExhausted = true;
+            heroLogic.setInputActive(true); // Input active but exhausted
+            
+            heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
+            
+            expect(heroLogic.currentStamina).toBeGreaterThan(0);
+        });
+
+        it('should reset exhausted when stamina fully recharged', () => {
+            heroLogic.currentStamina = 1.99; // Almost full
+            heroLogic.isExhausted = true;
+            heroLogic.setInputActive(false);
+            
+            // Update multiple times to fully recharge
+            for (let i = 0; i < 10; i++) {
+                heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
+            }
+            
+            expect(heroLogic.currentStamina).toBeGreaterThanOrEqual(heroLogic.maxStamina);
+            expect(heroLogic.isExhausted).toBe(false);
+        });
     });
 
     describe('update - anchor active', () => {
@@ -92,9 +132,11 @@ describe('HeroLogic', () => {
             // Set anchor point
             heroLogic.setPrevPos(400, 300);
             heroLogic.setInputActive(true);
+            heroLogic.currentStamina = 2.0; // Full stamina
+            heroLogic.isExhausted = false;
         });
 
-        it('should lock hero position when anchor active', () => {
+        it('should lock hero position when anchor active and not exhausted', () => {
             // Physics tries to move hero
             agents[0].x = 410;
             agents[0].y = 310;
@@ -108,7 +150,7 @@ describe('HeroLogic', () => {
             expect(agents[0].y).toBe(300);
         });
 
-        it('should reset hero velocity to zero when anchor active', () => {
+        it('should reset hero velocity to zero when anchor active and not exhausted', () => {
             agents[0].vx = 100;
             agents[0].vy = 50;
             
@@ -116,6 +158,39 @@ describe('HeroLogic', () => {
             
             expect(agents[0].vx).toBe(0);
             expect(agents[0].vy).toBe(0);
+        });
+
+        it('should consume stamina when anchor active', () => {
+            const initialStamina = heroLogic.currentStamina;
+            heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
+            
+            expect(heroLogic.currentStamina).toBeLessThan(initialStamina);
+        });
+
+        it('should not lock position when exhausted', () => {
+            // Exhaust stamina
+            heroLogic.currentStamina = 0;
+            heroLogic.isExhausted = true;
+            
+            // Physics moves hero
+            agents[0].x = 410;
+            agents[0].y = 310;
+            
+            heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
+            
+            // Position should NOT be locked (hero moves normally)
+            expect(agents[0].x).toBe(410);
+            expect(agents[0].y).toBe(310);
+        });
+
+        it('should set exhausted when stamina depletes', () => {
+            heroLogic.currentStamina = 0.01; // Very low stamina
+            heroLogic.isExhausted = false;
+            
+            heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
+            
+            expect(heroLogic.isExhausted).toBe(true);
+            expect(heroLogic.currentStamina).toBe(0);
         });
     });
 

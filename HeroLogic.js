@@ -17,6 +17,11 @@ export class HeroLogic {
         this.isInputActive = false; // Whether input (Space/Touch) is currently active (anchor)
         this.targetIndex = 1; // Index of the target agent (default: agent at index 1)
         
+        // Stamina system
+        this.maxStamina = 2.0; // Maximum stamina in seconds
+        this.currentStamina = 2.0; // Current stamina (initially full)
+        this.isExhausted = false; // Whether stamina is depleted
+        
         // Initialize previous position if provided
         if (initialAgent) {
             this.prevPos = { x: initialAgent.x, y: initialAgent.y };
@@ -32,7 +37,7 @@ export class HeroLogic {
     }
     
     /**
-     * Updates hero position with anchor mechanic
+     * Updates hero position with anchor mechanic and stamina system
      * This should be called AFTER physics update (agent.update())
      * @param {Array} agents - Array of Agent objects
      * @param {number} deltaTime - Time step
@@ -46,15 +51,43 @@ export class HeroLogic {
         
         const hero = agents[this.heroIndex];
         
+        // Stamina system update
         if (this.isInputActive) {
-            // Anchor active: Lock position and stop velocity
-            // Force Hero.velocity = (0, 0) and Hero.pos = Hero.prevPos
-            hero.x = this.prevPos.x;
-            hero.y = this.prevPos.y;
-            hero.vx = 0;
-            hero.vy = 0;
+            if (!this.isExhausted) {
+                // Consumption: Input active AND not exhausted
+                // Consume stamina and apply halt physics
+                this.currentStamina -= deltaTime;
+                if (this.currentStamina <= 0) {
+                    this.currentStamina = 0;
+                    this.isExhausted = true;
+                }
+                
+                // Apply halt physics (only if not exhausted)
+                hero.x = this.prevPos.x;
+                hero.y = this.prevPos.y;
+                hero.vx = 0;
+                hero.vy = 0;
+            } else {
+                // Input active but exhausted - regenerate stamina (input ignored)
+                this.currentStamina += deltaTime;
+                if (this.currentStamina >= this.maxStamina) {
+                    this.currentStamina = this.maxStamina;
+                    this.isExhausted = false;
+                }
+                
+                // Allow PhysicsEngine to update Hero position normally (input ignored)
+                this.prevPos = { x: hero.x, y: hero.y };
+            }
         } else {
-            // Anchor inactive: Allow PhysicsEngine to update Hero position normally
+            // Recovery: Input inactive
+            // Regenerate stamina
+            this.currentStamina += deltaTime;
+            if (this.currentStamina >= this.maxStamina) {
+                this.currentStamina = this.maxStamina;
+                this.isExhausted = false;
+            }
+            
+            // Allow PhysicsEngine to update Hero position normally
             // Update previous position for next frame (for anchor lock)
             this.prevPos = { x: hero.x, y: hero.y };
         }
@@ -254,5 +287,114 @@ export class HeroLogic {
      */
     setPrevPos(x, y) {
         this.prevPos = { x, y };
+    }
+    
+    /**
+     * Renders the stamina bar at the top of the screen using the same color spectrum as agent phases
+     * @param {CanvasRenderingContext2D} ctx - 2D rendering context
+     * @param {number} canvasWidth - Canvas width
+     * @param {number} canvasHeight - Canvas height
+     */
+    renderStaminaBar(ctx, canvasWidth, canvasHeight) {
+        const barHeight = 8;
+        const barY = 0; // Top of screen
+        
+        // Calculate bar width based on stamina percentage
+        const staminaPercent = this.currentStamina / this.maxStamina;
+        const barWidth = staminaPercent * canvasWidth;
+        
+        // Use the same color spectrum as agent phases: low-saturation red-blue-purple
+        // Agent phase mapping: Red (360°) → Purple (300°) → Blue (240°) → Red (0°)
+        // We'll map stamina from full (Red 360°) to empty (Blue 240°)
+        // Create gradient for the full bar width (not canvas width)
+        const gradient = ctx.createLinearGradient(0, barY, canvasWidth, barY);
+        
+        // Low saturation (30%) like agent colors
+        const saturation = 0.3;
+        const lightness = 0.5;
+        
+        // Helper function to convert HSL to RGB (same as Agent.updateColor)
+        const hslToRgb = (h, s, l) => {
+            let r, g, b;
+            if (s === 0) {
+                r = g = b = l;
+            } else {
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1/6) return p + (q - p) * 6 * t;
+                    if (t < 1/2) return q;
+                    if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                    return p;
+                };
+                const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                const p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1/3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1/3);
+            }
+            return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+        };
+        
+        // Add color stops matching agent phase colors
+        // Full stamina (stop 0) = Red (360°), Empty stamina (stop 1) = Blue (240°)
+        // Map through: Red (360°) → Purple (300°) → Blue (240°)
+        const numStops = 20;
+        for (let i = 0; i <= numStops; i++) {
+            const t = i / numStops; // 0 (full) to 1 (empty)
+            let hue;
+            
+            if (t < 1/2) {
+                // First half: Red (360°) to Purple (300°)
+                const localT = t * 2; // 0 to 1
+                hue = 360 - localT * 60; // 360° → 300°
+            } else {
+                // Second half: Purple (300°) to Blue (240°)
+                const localT = (t - 0.5) * 2; // 0 to 1
+                hue = 300 - localT * 60; // 300° → 240°
+            }
+            
+            const [r, g, b] = hslToRgb(hue / 360, saturation, lightness);
+            gradient.addColorStop(t, `rgb(${r}, ${g}, ${b})`);
+        }
+        
+        // Draw background (full width, dark gray)
+        ctx.fillStyle = 'rgba(32, 32, 32, 0.5)';
+        ctx.fillRect(0, barY, canvasWidth, barHeight);
+        
+        // If exhausted, render semi-transparent/grayed out
+        if (this.isExhausted) {
+            ctx.globalAlpha = 0.3;
+            ctx.fillStyle = 'rgba(128, 128, 128, 0.5)';
+            ctx.fillRect(0, barY, barWidth, barHeight);
+        } else {
+            ctx.globalAlpha = 1.0;
+            ctx.fillStyle = gradient;
+            // Draw only the portion corresponding to current stamina
+            ctx.fillRect(0, barY, barWidth, barHeight);
+        }
+        
+        // Add white glow when recovering from exhaustion
+        // Check if we're recovering: input inactive and stamina is regenerating (not at max)
+        const isRecovering = !this.isInputActive && this.currentStamina < this.maxStamina && this.currentStamina > 0;
+        if (isRecovering) {
+            // Draw a low-saturation white glow behind the bar
+            ctx.save();
+            ctx.globalAlpha = 0.3;
+            // Create a subtle white glow effect
+            for (let i = 0; i < 3; i++) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${0.1 - i * 0.03})`;
+                ctx.fillRect(0, barY - i, barWidth, barHeight + i * 2);
+            }
+            ctx.restore();
+        }
+        
+        // Reset global alpha
+        ctx.globalAlpha = 1.0;
+        
+        // Draw border
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(0, barY, canvasWidth, barHeight);
     }
 }
