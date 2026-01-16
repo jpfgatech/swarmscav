@@ -47,12 +47,13 @@ export function unmapLogScale(value, min, max) {
  * Creates and manages the interactive parameter panel
  */
 export class ParameterPanel {
-    constructor(configUpdater, energyToggleCallback, maxStaminaCallback = null, isDevMode = true) {
+    constructor(configUpdater, energyToggleCallback, maxStaminaCallback = null, isDevMode = true, presetIndex = null) {
         this.configUpdater = configUpdater; // Function to update config values
         this.energyToggleCallback = energyToggleCallback; // Function to toggle energy curve
         this.maxStaminaCallback = maxStaminaCallback; // Function to update max stamina (optional)
         this.showEnergyCurve = false; // Default: hide energy curve
         this.isDevMode = isDevMode; // Whether in developer mode (text inputs) or player mode (sliders)
+        this.presetIndex = presetIndex; // Current preset index (for player mode display)
         
         this.createPanel();
     }
@@ -124,7 +125,12 @@ export class ParameterPanel {
     }
     
     generatePlayerModeHTML() {
+        const presetDisplay = this.presetIndex !== null 
+            ? `<div class="preset-display">Preset: ${this.presetIndex + 1} / ${4}</div>`
+            : '';
+        
         return `
+                ${presetDisplay}
                 <!-- Coupling Controls -->
                 <div class="control-group">
                     <h4>Coupling Constants</h4>
@@ -400,6 +406,18 @@ export class ParameterPanel {
                 width: 18px;
                 height: 18px;
                 cursor: pointer;
+            }
+            
+            .preset-display {
+                padding: 10px 15px;
+                margin: 0 15px 15px 15px;
+                background: #333;
+                border: 1px solid #555;
+                border-radius: 4px;
+                color: #0af;
+                font-size: 12px;
+                font-weight: 600;
+                text-align: center;
             }
             
             .number-input {

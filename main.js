@@ -395,9 +395,11 @@ const PRESET_CONFIGS = [
 ];
 
 // Apply a random preset configuration
+// Returns the preset index that was applied
 function applyRandomPreset() {
-    const preset = PRESET_CONFIGS[Math.floor(Math.random() * PRESET_CONFIGS.length)];
-    console.log('Player Mode: Applying preset', preset);
+    const presetIndex = Math.floor(Math.random() * PRESET_CONFIGS.length);
+    const preset = PRESET_CONFIGS[presetIndex];
+    console.log('Player Mode: Applying preset', presetIndex, preset);
     
     if (preset.J !== undefined) {
         RuntimeConfig.J = preset.J;
@@ -408,6 +410,8 @@ function applyRandomPreset() {
     if (preset.TIME_SCALE !== undefined) {
         RuntimeConfig.TIME_SCALE = preset.TIME_SCALE;
     }
+    
+    return presetIndex;
 }
 
 // Initialize and start the simulation
@@ -417,13 +421,14 @@ try {
     const isDevMode = gameMode === 'dev';
     
     // Apply random preset if in player mode
+    let currentPresetIndex = null;
     if (!isDevMode) {
-        applyRandomPreset();
+        currentPresetIndex = applyRandomPreset();
     }
     
     initialize();
     
-    // Initialize ParameterPanel only in dev mode
+    // Initialize ParameterPanel (shown in both modes, but different UI)
     let parameterPanel = null;
     if (isDevMode) {
         parameterPanel = new ParameterPanel(
@@ -441,13 +446,35 @@ try {
                     heroLogic.setMaxStamina(maxStamina);
                 }
             },
-            true // isDevMode = true
+            true, // isDevMode = true
+            null  // presetIndex (not applicable in dev mode)
         );
         
         // Initialize panel with current config values
         parameterPanel.updateFromConfig(RuntimeConfig);
     } else {
-        console.log('Player Mode: Parameter panel hidden');
+        // Player mode: create panel with preset index display
+        parameterPanel = new ParameterPanel(
+            (key, value) => {
+                // Config updater callback
+                updateRuntimeConfig(key, value);
+            },
+            (show) => {
+                // Energy curve toggle callback
+                showEnergyCurve = show;
+            },
+            (maxStamina) => {
+                // Max stamina callback
+                if (heroLogic) {
+                    heroLogic.setMaxStamina(maxStamina);
+                }
+            },
+            false, // isDevMode = false
+            currentPresetIndex // presetIndex for display
+        );
+        
+        // Initialize panel with current config values
+        parameterPanel.updateFromConfig(RuntimeConfig);
     }
     
     // Add keyboard input handler for Space key (hero anchor activation)
