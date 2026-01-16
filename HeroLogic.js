@@ -37,6 +37,18 @@ export class HeroLogic {
     }
     
     /**
+     * Sets the maximum stamina value
+     * @param {number} maxStamina - Maximum stamina in seconds (1.0 to 5.0)
+     */
+    setMaxStamina(maxStamina) {
+        this.maxStamina = Math.max(1.0, Math.min(5.0, maxStamina));
+        // Clamp current stamina to new max
+        if (this.currentStamina > this.maxStamina) {
+            this.currentStamina = this.maxStamina;
+        }
+    }
+    
+    /**
      * Updates hero position with anchor mechanic and stamina system
      * This should be called AFTER physics update (agent.update())
      * @param {Array} agents - Array of Agent objects

@@ -391,6 +391,12 @@ try {
         (show) => {
             // Energy curve toggle callback
             showEnergyCurve = show;
+        },
+        (maxStamina) => {
+            // Max stamina callback
+            if (heroLogic) {
+                heroLogic.setMaxStamina(maxStamina);
+            }
         }
     );
     

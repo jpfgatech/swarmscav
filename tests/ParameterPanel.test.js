@@ -72,7 +72,7 @@ describe('unmapLogScale', () => {
 describe('ParameterPanel', () => {
     let mockConfigUpdater;
     let mockEnergyToggle;
-    let mockHeroBoost;
+    let mockMaxStamina;
     let panel;
 
     beforeEach(() => {
@@ -84,9 +84,9 @@ describe('ParameterPanel', () => {
         
         mockConfigUpdater = vi.fn();
         mockEnergyToggle = vi.fn();
-        mockHeroBoost = vi.fn();
+        mockMaxStamina = vi.fn();
         
-        panel = new ParameterPanel(mockConfigUpdater, mockEnergyToggle, mockHeroBoost);
+        panel = new ParameterPanel(mockConfigUpdater, mockEnergyToggle, mockMaxStamina);
     });
 
     it('should create panel with correct structure', () => {
@@ -121,11 +121,11 @@ describe('ParameterPanel', () => {
         expect(freqBaseSlider.max).toBe('1');
     });
 
-    it('should have hero boost slider', () => {
-        const heroBoostSlider = document.getElementById('hero-boost-slider');
-        expect(heroBoostSlider).toBeTruthy();
-        expect(heroBoostSlider.min).toBe('1');
-        expect(heroBoostSlider.max).toBe('16');
+    it('should have max stamina slider', () => {
+        const maxStaminaSlider = document.getElementById('max-stamina-slider');
+        expect(maxStaminaSlider).toBeTruthy();
+        expect(maxStaminaSlider.min).toBe('1.0');
+        expect(maxStaminaSlider.max).toBe('5.0');
     });
 
     it('should have energy curve toggle', () => {
@@ -150,13 +150,14 @@ describe('ParameterPanel', () => {
         expect(mockConfigUpdater).toHaveBeenCalledWith('K', -0.5);
     });
 
-    it('should call heroBoostCallback when hero boost slider changes', () => {
-        const heroBoostSlider = document.getElementById('hero-boost-slider');
-        if (heroBoostSlider) {
-            heroBoostSlider.value = '3.0';
-            heroBoostSlider.dispatchEvent(new Event('input'));
-            // The callback might not be set up, so we'll just check the slider exists
-            expect(heroBoostSlider).toBeTruthy();
+    it('should call maxStaminaCallback when max stamina slider changes', () => {
+        const maxStaminaSlider = document.getElementById('max-stamina-slider');
+        if (maxStaminaSlider) {
+            maxStaminaSlider.value = '3.0';
+            maxStaminaSlider.dispatchEvent(new Event('input'));
+            
+            expect(maxStaminaSlider).toBeTruthy();
+            expect(mockMaxStamina).toHaveBeenCalledWith(3.0);
         }
     });
 

@@ -47,11 +47,10 @@ export function unmapLogScale(value, min, max) {
  * Creates and manages the interactive parameter panel
  */
 export class ParameterPanel {
-    constructor(configUpdater, energyToggleCallback, heroAlphaCallback = null, heroBoostCallback = null) {
+    constructor(configUpdater, energyToggleCallback, maxStaminaCallback = null) {
         this.configUpdater = configUpdater; // Function to update config values
         this.energyToggleCallback = energyToggleCallback; // Function to toggle energy curve
-        this.heroAlphaCallback = heroAlphaCallback; // Function to update hero alpha (optional)
-        this.heroBoostCallback = heroBoostCallback; // Function to update hero boost alpha (optional)
+        this.maxStaminaCallback = maxStaminaCallback; // Function to update max stamina (optional)
         this.showEnergyCurve = false; // Default: hide energy curve
         
         this.createPanel();
@@ -128,18 +127,18 @@ export class ParameterPanel {
                     <h4>Frequency Variance</h4>
                     
                     <div class="control-row">
-                        <label for="freq-std-slider">Omega Variation (% of Base): <span id="freq-std-value">100%</span></label>
-                        <input type="range" id="freq-std-slider" min="0" max="2" step="0.01" value="1.0" class="slider">
+                        <label for="freq-std-slider">Freq Std Dev: <span id="freq-std-value">100%</span></label>
+                        <input type="range" id="freq-std-slider" min="0" max="4" step="0.01" value="1.0" class="slider">
                     </div>
                 </div>
                 
-                <!-- Hero Turbo Boost -->
+                <!-- Stamina -->
                 <div class="control-group">
-                    <h4>Hero Turbo Boost</h4>
+                    <h4>Stamina</h4>
                     
                     <div class="control-row">
-                        <label for="hero-boost-slider">Boost Factor: <span id="hero-boost-value">16.0</span></label>
-                        <input type="range" id="hero-boost-slider" min="1" max="16" step="0.1" value="16.0" class="slider">
+                        <label for="max-stamina-slider">Max Stamina: <span id="max-stamina-value">2.0</span>s</label>
+                        <input type="range" id="max-stamina-slider" min="1.0" max="5.0" step="0.1" value="2.0" class="slider">
                     </div>
                 </div>
                 
@@ -407,16 +406,30 @@ export class ParameterPanel {
             this.configUpdater('BASE_OMEGA', value);
         });
         
-        // Frequency variation slider (0% to 200% of base)
+        // Frequency std dev slider (0% to 400% of base)
         const freqStdSlider = document.getElementById('freq-std-slider');
         const freqStdValue = document.getElementById('freq-std-value');
         freqStdSlider.addEventListener('input', (e) => {
-            const multiplier = parseFloat(e.target.value);
+            const multiplier = parseFloat(e.target.value); // 0.0 to 4.0
             const baseFreq = mapLogScale(parseFloat(freqBaseSlider.value), 0.001, 10);
-            const variation = baseFreq * multiplier;
+            // omega_std = slider_val * base_omega
+            const omegaStd = multiplier * baseFreq;
             freqStdValue.textContent = `${(multiplier * 100).toFixed(0)}%`;
-            this.configUpdater('OMEGA_VARIATION', variation);
+            this.configUpdater('OMEGA_VARIATION', omegaStd);
         });
+        
+        // Max Stamina slider (1.0 to 5.0 seconds)
+        const maxStaminaSlider = document.getElementById('max-stamina-slider');
+        const maxStaminaValue = document.getElementById('max-stamina-value');
+        if (maxStaminaSlider && maxStaminaValue) {
+            maxStaminaSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                maxStaminaValue.textContent = value.toFixed(1);
+                if (this.maxStaminaCallback) {
+                    this.maxStaminaCallback(value);
+                }
+            });
+        }
         
         // Preset buttons for J and K
         document.querySelectorAll('.preset-btn').forEach(btn => {
@@ -496,13 +509,26 @@ export class ParameterPanel {
             freqBaseValue.textContent = config.BASE_OMEGA.toFixed(4);
         }
         
-        // Update frequency variation slider
+        // Update frequency std dev slider
         const freqStdSlider = document.getElementById('freq-std-slider');
         const freqStdValue = document.getElementById('freq-std-value');
         if (freqStdSlider && freqStdValue) {
+            // omega_std = slider_val * base_omega, so slider_val = omega_std / base_omega
             const multiplier = config.OMEGA_VARIATION / config.BASE_OMEGA;
-            freqStdSlider.value = multiplier;
+            const sliderValue = Math.max(0, Math.min(4, multiplier));
+            freqStdSlider.value = sliderValue;
             freqStdValue.textContent = `${(multiplier * 100).toFixed(0)}%`;
+        }
+        
+        // Update max stamina slider (if callback is provided, it means heroLogic exists)
+        const maxStaminaSlider = document.getElementById('max-stamina-slider');
+        const maxStaminaValue = document.getElementById('max-stamina-value');
+        if (maxStaminaSlider && maxStaminaValue && this.maxStaminaCallback) {
+            // Default to 2.0 if not in config
+            const stamina = config.MAX_STAMINA || 2.0;
+            const sliderValue = Math.max(1.0, Math.min(5.0, stamina));
+            maxStaminaSlider.value = sliderValue;
+            maxStaminaValue.textContent = sliderValue.toFixed(1);
         }
     }
 }
