@@ -47,31 +47,84 @@ export function unmapLogScale(value, min, max) {
  * Creates and manages the interactive parameter panel
  */
 export class ParameterPanel {
-    constructor(configUpdater, energyToggleCallback, maxStaminaCallback = null) {
+    constructor(configUpdater, energyToggleCallback, maxStaminaCallback = null, isDevMode = true) {
         this.configUpdater = configUpdater; // Function to update config values
         this.energyToggleCallback = energyToggleCallback; // Function to toggle energy curve
         this.maxStaminaCallback = maxStaminaCallback; // Function to update max stamina (optional)
         this.showEnergyCurve = false; // Default: hide energy curve
+        this.isDevMode = isDevMode; // Whether in developer mode (text inputs) or player mode (sliders)
         
         this.createPanel();
     }
     
-    createPanel() {
-        // Remove existing panel if it exists
-        const existing = document.getElementById('parameter-panel');
-        if (existing) {
-            existing.remove();
-        }
-        
-        // Create panel container
-        const panel = document.createElement('div');
-        panel.id = 'parameter-panel';
-        panel.innerHTML = `
-            <div class="panel-header">
-                <h3>Interactive Parameters</h3>
-                <button id="panel-toggle" class="panel-toggle">−</button>
-            </div>
-            <div class="panel-content" id="panel-content">
+    generateDevModeHTML() {
+        return `
+                <!-- Coupling Controls -->
+                <div class="control-group">
+                    <h4>Coupling Constants</h4>
+                    
+                    <div class="control-row">
+                        <label for="j-input">J (Spatial Coupling):</label>
+                        <input type="number" id="j-input" step="any" value="1.2" class="number-input">
+                    </div>
+                    
+                    <div class="control-row">
+                        <label for="k-input">K (Phase Coupling):</label>
+                        <input type="number" id="k-input" step="any" value="0.00" class="number-input">
+                    </div>
+                </div>
+                
+                <!-- Time Dynamics -->
+                <div class="control-group">
+                    <h4>Time Dynamics</h4>
+                    
+                    <div class="control-row">
+                        <label for="time-scale-input">Time Scale:</label>
+                        <input type="number" id="time-scale-input" step="any" value="100.0" class="number-input">
+                    </div>
+                    
+                    <div class="control-row">
+                        <label for="freq-base-input">Base Frequency (BASE_OMEGA):</label>
+                        <input type="number" id="freq-base-input" step="any" value="0.02" class="number-input">
+                    </div>
+                </div>
+                
+                <!-- Variance -->
+                <div class="control-group">
+                    <h4>Frequency Variance</h4>
+                    
+                    <div class="control-row">
+                        <label for="freq-std-input">Freq Std Dev (multiplier):</label>
+                        <input type="number" id="freq-std-input" step="any" value="1.0" class="number-input">
+                    </div>
+                </div>
+                
+                <!-- Stamina -->
+                <div class="control-group">
+                    <h4>Stamina</h4>
+                    
+                    <div class="control-row">
+                        <label for="max-stamina-input">Max Stamina (seconds):</label>
+                        <input type="number" id="max-stamina-input" step="any" value="2.0" class="number-input">
+                    </div>
+                </div>
+                
+                <!-- Visuals -->
+                <div class="control-group">
+                    <h4>Visuals</h4>
+                    
+                    <div class="control-row">
+                        <label class="toggle-label">
+                            <input type="checkbox" id="energy-curve-toggle">
+                            <span>Show Kinetic Energy Curve</span>
+                        </label>
+                    </div>
+                </div>
+        `;
+    }
+    
+    generatePlayerModeHTML() {
+        return `
                 <!-- Coupling Controls -->
                 <div class="control-group">
                     <h4>Coupling Constants</h4>
@@ -153,6 +206,29 @@ export class ParameterPanel {
                         </label>
                     </div>
                 </div>
+        `;
+    }
+    
+    createPanel() {
+        // Remove existing panel if it exists
+        const existing = document.getElementById('parameter-panel');
+        if (existing) {
+            existing.remove();
+        }
+        
+        // Create panel container
+        const panel = document.createElement('div');
+        panel.id = 'parameter-panel';
+        
+        // Generate HTML based on mode
+        const htmlContent = this.isDevMode ? this.generateDevModeHTML() : this.generatePlayerModeHTML();
+        panel.innerHTML = `
+            <div class="panel-header">
+                <h3>${this.isDevMode ? 'Developer Parameters' : 'Interactive Parameters'}</h3>
+                <button id="panel-toggle" class="panel-toggle">−</button>
+            </div>
+            <div class="panel-content" id="panel-content">
+                ${htmlContent}
             </div>
         `;
         
@@ -325,6 +401,23 @@ export class ParameterPanel {
                 height: 18px;
                 cursor: pointer;
             }
+            
+            .number-input {
+                width: 100%;
+                padding: 6px 8px;
+                background: #333;
+                border: 1px solid #555;
+                border-radius: 4px;
+                color: #fff;
+                font-size: 12px;
+                font-family: monospace;
+            }
+            
+            .number-input:focus {
+                outline: none;
+                border-color: #0af;
+                background: #3a3a3a;
+            }
         `;
         document.head.appendChild(style);
         
@@ -370,53 +463,191 @@ export class ParameterPanel {
             }
         });
         
+        if (this.isDevMode) {
+            // Dev mode: text inputs with blur/change events
+            this.setupDevModeListeners();
+        } else {
+            // Player mode: sliders with input events
+            this.setupPlayerModeListeners();
+        }
+        
+        // Energy curve toggle (common to both modes)
+        const energyToggle = document.getElementById('energy-curve-toggle');
+        if (energyToggle) {
+            energyToggle.checked = this.showEnergyCurve;
+            energyToggle.addEventListener('change', (e) => {
+                this.showEnergyCurve = e.target.checked;
+                this.energyToggleCallback(this.showEnergyCurve);
+            });
+        }
+    }
+    
+    setupDevModeListeners() {
+        // J input
+        const jInput = document.getElementById('j-input');
+        if (jInput) {
+            jInput.addEventListener('blur', (e) => {
+                const value = parseFloat(e.target.value);
+                if (!isNaN(value)) {
+                    this.configUpdater('J', value);
+                }
+            });
+            jInput.addEventListener('change', (e) => {
+                const value = parseFloat(e.target.value);
+                if (!isNaN(value)) {
+                    this.configUpdater('J', value);
+                }
+            });
+        }
+        
+        // K input
+        const kInput = document.getElementById('k-input');
+        if (kInput) {
+            kInput.addEventListener('blur', (e) => {
+                const value = parseFloat(e.target.value);
+                if (!isNaN(value)) {
+                    this.configUpdater('K', value);
+                }
+            });
+            kInput.addEventListener('change', (e) => {
+                const value = parseFloat(e.target.value);
+                if (!isNaN(value)) {
+                    this.configUpdater('K', value);
+                }
+            });
+        }
+        
+        // Time scale input
+        const timeScaleInput = document.getElementById('time-scale-input');
+        if (timeScaleInput) {
+            timeScaleInput.addEventListener('blur', (e) => {
+                const value = parseFloat(e.target.value);
+                if (!isNaN(value) && value > 0) {
+                    this.configUpdater('TIME_SCALE', value);
+                }
+            });
+            timeScaleInput.addEventListener('change', (e) => {
+                const value = parseFloat(e.target.value);
+                if (!isNaN(value) && value > 0) {
+                    this.configUpdater('TIME_SCALE', value);
+                }
+            });
+        }
+        
+        // Base frequency input
+        const freqBaseInput = document.getElementById('freq-base-input');
+        if (freqBaseInput) {
+            freqBaseInput.addEventListener('blur', (e) => {
+                const value = parseFloat(e.target.value);
+                if (!isNaN(value) && value > 0) {
+                    this.configUpdater('BASE_OMEGA', value);
+                }
+            });
+            freqBaseInput.addEventListener('change', (e) => {
+                const value = parseFloat(e.target.value);
+                if (!isNaN(value) && value > 0) {
+                    this.configUpdater('BASE_OMEGA', value);
+                }
+            });
+        }
+        
+        // Frequency std dev input (multiplier)
+        const freqStdInput = document.getElementById('freq-std-input');
+        if (freqStdInput) {
+            freqStdInput.addEventListener('blur', (e) => {
+                const multiplier = parseFloat(e.target.value);
+                if (!isNaN(multiplier) && multiplier >= 0) {
+                    const baseFreq = parseFloat(freqBaseInput.value) || 0.02;
+                    const omegaStd = multiplier * baseFreq;
+                    this.configUpdater('OMEGA_VARIATION', omegaStd);
+                }
+            });
+            freqStdInput.addEventListener('change', (e) => {
+                const multiplier = parseFloat(e.target.value);
+                if (!isNaN(multiplier) && multiplier >= 0) {
+                    const baseFreq = parseFloat(freqBaseInput.value) || 0.02;
+                    const omegaStd = multiplier * baseFreq;
+                    this.configUpdater('OMEGA_VARIATION', omegaStd);
+                }
+            });
+        }
+        
+        // Max Stamina input
+        const maxStaminaInput = document.getElementById('max-stamina-input');
+        if (maxStaminaInput && this.maxStaminaCallback) {
+            maxStaminaInput.addEventListener('blur', (e) => {
+                const value = parseFloat(e.target.value);
+                if (!isNaN(value) && value > 0) {
+                    this.maxStaminaCallback(value);
+                }
+            });
+            maxStaminaInput.addEventListener('change', (e) => {
+                const value = parseFloat(e.target.value);
+                if (!isNaN(value) && value > 0) {
+                    this.maxStaminaCallback(value);
+                }
+            });
+        }
+    }
+    
+    setupPlayerModeListeners() {
         // J slider
         const jSlider = document.getElementById('j-slider');
         const jValue = document.getElementById('j-value');
-        jSlider.addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
-            jValue.textContent = value.toFixed(2);
-            this.configUpdater('J', value);
-        });
+        if (jSlider && jValue) {
+            jSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                jValue.textContent = value.toFixed(2);
+                this.configUpdater('J', value);
+            });
+        }
         
         // K slider
         const kSlider = document.getElementById('k-slider');
         const kValue = document.getElementById('k-value');
-        kSlider.addEventListener('input', (e) => {
-            const value = parseFloat(e.target.value);
-            kValue.textContent = value.toFixed(2);
-            this.configUpdater('K', value);
-        });
+        if (kSlider && kValue) {
+            kSlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                kValue.textContent = value.toFixed(2);
+                this.configUpdater('K', value);
+            });
+        }
         
         // Time scale slider (log scale: 10 to 10000)
         const timeScaleSlider = document.getElementById('time-scale-slider');
         const timeScaleValue = document.getElementById('time-scale-value');
-        timeScaleSlider.addEventListener('input', (e) => {
-            const value = mapLogScale(parseFloat(e.target.value), 10, 10000);
-            timeScaleValue.textContent = value.toFixed(1);
-            this.configUpdater('TIME_SCALE', value);
-        });
+        if (timeScaleSlider && timeScaleValue) {
+            timeScaleSlider.addEventListener('input', (e) => {
+                const value = mapLogScale(parseFloat(e.target.value), 10, 10000);
+                timeScaleValue.textContent = value.toFixed(1);
+                this.configUpdater('TIME_SCALE', value);
+            });
+        }
         
         // Base frequency slider (log scale: 0.001 to 10)
         const freqBaseSlider = document.getElementById('freq-base-slider');
         const freqBaseValue = document.getElementById('freq-base-value');
-        freqBaseSlider.addEventListener('input', (e) => {
-            const value = mapLogScale(parseFloat(e.target.value), 0.001, 10);
-            freqBaseValue.textContent = value.toFixed(4);
-            this.configUpdater('BASE_OMEGA', value);
-        });
+        if (freqBaseSlider && freqBaseValue) {
+            freqBaseSlider.addEventListener('input', (e) => {
+                const value = mapLogScale(parseFloat(e.target.value), 0.001, 10);
+                freqBaseValue.textContent = value.toFixed(4);
+                this.configUpdater('BASE_OMEGA', value);
+            });
+        }
         
         // Frequency std dev slider (0% to 400% of base)
         const freqStdSlider = document.getElementById('freq-std-slider');
         const freqStdValue = document.getElementById('freq-std-value');
-        freqStdSlider.addEventListener('input', (e) => {
-            const multiplier = parseFloat(e.target.value); // 0.0 to 4.0
-            const baseFreq = mapLogScale(parseFloat(freqBaseSlider.value), 0.001, 10);
-            // omega_std = slider_val * base_omega
-            const omegaStd = multiplier * baseFreq;
-            freqStdValue.textContent = `${(multiplier * 100).toFixed(0)}%`;
-            this.configUpdater('OMEGA_VARIATION', omegaStd);
-        });
+        if (freqStdSlider && freqStdValue && freqBaseSlider) {
+            freqStdSlider.addEventListener('input', (e) => {
+                const multiplier = parseFloat(e.target.value); // 0.0 to 4.0
+                const baseFreq = mapLogScale(parseFloat(freqBaseSlider.value), 0.001, 10);
+                // omega_std = slider_val * base_omega
+                const omegaStd = multiplier * baseFreq;
+                freqStdValue.textContent = `${(multiplier * 100).toFixed(0)}%`;
+                this.configUpdater('OMEGA_VARIATION', omegaStd);
+            });
+        }
         
         // Max Stamina slider (1.0 to 5.0 seconds)
         const maxStaminaSlider = document.getElementById('max-stamina-slider');
@@ -447,88 +678,109 @@ export class ParameterPanel {
                 
                 // For extreme values like ±1024, don't clamp - allow them to exceed slider range
                 // The slider itself is limited to -2 to 2, but config can accept any value
-                if (Math.abs(newValue) <= 2) {
-                    slider.value = newValue;
-                    valueSpan.textContent = newValue.toFixed(2);
-                } else {
-                    // For extreme values, update display but keep slider at limit
-                    slider.value = newValue > 0 ? 2 : -2;
-                    valueSpan.textContent = newValue.toFixed(0);
+                if (slider && valueSpan) {
+                    if (Math.abs(newValue) <= 2) {
+                        slider.value = newValue;
+                        valueSpan.textContent = newValue.toFixed(2);
+                    } else {
+                        // For extreme values, update display but keep slider at limit
+                        slider.value = newValue > 0 ? 2 : -2;
+                        valueSpan.textContent = newValue.toFixed(0);
+                    }
                 }
                 
                 // Update config with actual value (not clamped)
                 this.configUpdater(param, newValue);
             });
         });
-        
-        // Energy curve toggle
-        const energyToggle = document.getElementById('energy-curve-toggle');
-        if (energyToggle) {
-            energyToggle.checked = this.showEnergyCurve; // Set initial state to false
-            energyToggle.addEventListener('change', (e) => {
-                this.showEnergyCurve = e.target.checked;
-                this.energyToggleCallback(this.showEnergyCurve);
-            });
-        }
     }
     
     /**
-     * Updates slider values from current config (useful for initialization)
+     * Updates input/slider values from current config (useful for initialization)
      */
     updateFromConfig(config) {
-        // Update J and K sliders
-        const jSlider = document.getElementById('j-slider');
-        const jValue = document.getElementById('j-value');
-        if (jSlider && jValue) {
-            jSlider.value = config.J;
-            jValue.textContent = config.J.toFixed(2);
-        }
-        
-        const kSlider = document.getElementById('k-slider');
-        const kValue = document.getElementById('k-value');
-        if (kSlider && kValue) {
-            kSlider.value = config.K;
-            kValue.textContent = config.K.toFixed(2);
-        }
-        
-        // Update time scale slider (log scale)
-        const timeScaleSlider = document.getElementById('time-scale-slider');
-        const timeScaleValue = document.getElementById('time-scale-value');
-        if (timeScaleSlider && timeScaleValue) {
-            const sliderVal = unmapLogScale(config.TIME_SCALE, 10, 10000);
-            timeScaleSlider.value = sliderVal;
-            timeScaleValue.textContent = config.TIME_SCALE.toFixed(1);
-        }
-        
-        // Update base frequency slider (log scale)
-        const freqBaseSlider = document.getElementById('freq-base-slider');
-        const freqBaseValue = document.getElementById('freq-base-value');
-        if (freqBaseSlider && freqBaseValue) {
-            const sliderVal = unmapLogScale(config.BASE_OMEGA, 0.001, 10);
-            freqBaseSlider.value = sliderVal;
-            freqBaseValue.textContent = config.BASE_OMEGA.toFixed(4);
-        }
-        
-        // Update frequency std dev slider
-        const freqStdSlider = document.getElementById('freq-std-slider');
-        const freqStdValue = document.getElementById('freq-std-value');
-        if (freqStdSlider && freqStdValue) {
-            // omega_std = slider_val * base_omega, so slider_val = omega_std / base_omega
-            const multiplier = config.OMEGA_VARIATION / config.BASE_OMEGA;
-            const sliderValue = Math.max(0, Math.min(4, multiplier));
-            freqStdSlider.value = sliderValue;
-            freqStdValue.textContent = `${(multiplier * 100).toFixed(0)}%`;
-        }
-        
-        // Update max stamina slider (if callback is provided, it means heroLogic exists)
-        const maxStaminaSlider = document.getElementById('max-stamina-slider');
-        const maxStaminaValue = document.getElementById('max-stamina-value');
-        if (maxStaminaSlider && maxStaminaValue && this.maxStaminaCallback) {
-            // Default to 2.0 if not in config
-            const stamina = config.MAX_STAMINA || 2.0;
-            const sliderValue = Math.max(1.0, Math.min(5.0, stamina));
-            maxStaminaSlider.value = sliderValue;
-            maxStaminaValue.textContent = sliderValue.toFixed(1);
+        if (this.isDevMode) {
+            // Dev mode: update text inputs
+            const jInput = document.getElementById('j-input');
+            if (jInput) jInput.value = config.J;
+            
+            const kInput = document.getElementById('k-input');
+            if (kInput) kInput.value = config.K;
+            
+            const timeScaleInput = document.getElementById('time-scale-input');
+            if (timeScaleInput) timeScaleInput.value = config.TIME_SCALE;
+            
+            const freqBaseInput = document.getElementById('freq-base-input');
+            if (freqBaseInput) freqBaseInput.value = config.BASE_OMEGA;
+            
+            const freqStdInput = document.getElementById('freq-std-input');
+            if (freqStdInput) {
+                const multiplier = config.OMEGA_VARIATION / config.BASE_OMEGA;
+                freqStdInput.value = multiplier;
+            }
+            
+            const maxStaminaInput = document.getElementById('max-stamina-input');
+            if (maxStaminaInput) {
+                // MAX_STAMINA is not in Config, it's managed by HeroLogic
+                // Default to 2.0 if not provided
+                const stamina = (config && config.MAX_STAMINA) ? config.MAX_STAMINA : 2.0;
+                maxStaminaInput.value = stamina;
+            }
+        } else {
+            // Player mode: update sliders
+            const jSlider = document.getElementById('j-slider');
+            const jValue = document.getElementById('j-value');
+            if (jSlider && jValue) {
+                jSlider.value = config.J;
+                jValue.textContent = config.J.toFixed(2);
+            }
+            
+            const kSlider = document.getElementById('k-slider');
+            const kValue = document.getElementById('k-value');
+            if (kSlider && kValue) {
+                kSlider.value = config.K;
+                kValue.textContent = config.K.toFixed(2);
+            }
+            
+            // Update time scale slider (log scale)
+            const timeScaleSlider = document.getElementById('time-scale-slider');
+            const timeScaleValue = document.getElementById('time-scale-value');
+            if (timeScaleSlider && timeScaleValue) {
+                const sliderVal = unmapLogScale(config.TIME_SCALE, 10, 10000);
+                timeScaleSlider.value = sliderVal;
+                timeScaleValue.textContent = config.TIME_SCALE.toFixed(1);
+            }
+            
+            // Update base frequency slider (log scale)
+            const freqBaseSlider = document.getElementById('freq-base-slider');
+            const freqBaseValue = document.getElementById('freq-base-value');
+            if (freqBaseSlider && freqBaseValue) {
+                const sliderVal = unmapLogScale(config.BASE_OMEGA, 0.001, 10);
+                freqBaseSlider.value = sliderVal;
+                freqBaseValue.textContent = config.BASE_OMEGA.toFixed(4);
+            }
+            
+            // Update frequency std dev slider
+            const freqStdSlider = document.getElementById('freq-std-slider');
+            const freqStdValue = document.getElementById('freq-std-value');
+            if (freqStdSlider && freqStdValue) {
+                // omega_std = slider_val * base_omega, so slider_val = omega_std / base_omega
+                const multiplier = config.OMEGA_VARIATION / config.BASE_OMEGA;
+                const sliderValue = Math.max(0, Math.min(4, multiplier));
+                freqStdSlider.value = sliderValue;
+                freqStdValue.textContent = `${(multiplier * 100).toFixed(0)}%`;
+            }
+            
+            // Update max stamina slider (if callback is provided, it means heroLogic exists)
+            const maxStaminaSlider = document.getElementById('max-stamina-slider');
+            const maxStaminaValue = document.getElementById('max-stamina-value');
+            if (maxStaminaSlider && maxStaminaValue && this.maxStaminaCallback) {
+                // Default to 2.0 if not in config
+                const stamina = config.MAX_STAMINA || 2.0;
+                const sliderValue = Math.max(1.0, Math.min(5.0, stamina));
+                maxStaminaSlider.value = sliderValue;
+                maxStaminaValue.textContent = sliderValue.toFixed(1);
+            }
         }
     }
 }

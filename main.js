@@ -440,7 +440,8 @@ try {
                 if (heroLogic) {
                     heroLogic.setMaxStamina(maxStamina);
                 }
-            }
+            },
+            true // isDevMode = true
         );
         
         // Initialize panel with current config values

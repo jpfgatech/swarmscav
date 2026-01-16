@@ -1,10 +1,10 @@
-- [ ] **Refactor: Developer Panel (Text Inputs)**
+- [x] **Refactor: Developer Panel (Text Inputs)**
     - *Goal*: Convert the Developer Panel from "Exploration Tools" (Sliders) to "Precision Tools" (Text Boxes).
     - *Logic*:
-        -   **Condition**: Only execute this if `state.isDev` is true.
+        -   **Condition**: Only execute this if `isDevMode` is true.
         -   **UI Change**: Rewrite the `ParameterPanel` class.
             -   Replace all `<input type="range">` elements with `<input type="number">`.
             -   Remove `min/max` constraints (allow typing any float).
-            -   Add a small "Update" button or use `onchange` (blur) event to apply values (to prevent lag while typing).
+            -   Use `onchange` and `blur` events to apply values (to prevent lag while typing).
     - *Constraint*: Ensure inputs handle standard values (e.g., "1.0") and extreme scientific notation if needed.
     - *Verify*: Enter Developer Mode. Type "1024" into `J`. Verify the simulation reacts instantly/upon enter.
