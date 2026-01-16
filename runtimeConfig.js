@@ -38,6 +38,12 @@ function getUrlParamBool(name, defaultValue) {
     return value === 'true' || value === '1';
 }
 
+function getUrlParamString(name, defaultValue) {
+    if (typeof window === 'undefined') return defaultValue;
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(name) || defaultValue;
+}
+
 /**
  * Mutable runtime configuration object
  * These values can be updated in real-time by the ParameterPanel

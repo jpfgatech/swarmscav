@@ -378,30 +378,76 @@ window.SIMULATION_STATUS = 'RUNNING';
 window.SIMULATION_RESULT = null;
 window.SIMULATION_PAUSED = false;
 
+// Game mode detection
+function getGameMode() {
+    if (typeof window === 'undefined') return 'player';
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+    return mode === 'dev_secret' ? 'dev' : 'player';
+}
+
+// Preset configurations for Player Mode
+const PRESET_CONFIGS = [
+    { J: 2.5, K: -1.0 },
+    { J: 2.5, K: -0.16, TIME_SCALE: 250 },
+    { J: 8.0, K: -8.0 },
+    { J: 8.0, K: -4.0, TIME_SCALE: 50 }
+];
+
+// Apply a random preset configuration
+function applyRandomPreset() {
+    const preset = PRESET_CONFIGS[Math.floor(Math.random() * PRESET_CONFIGS.length)];
+    console.log('Player Mode: Applying preset', preset);
+    
+    if (preset.J !== undefined) {
+        RuntimeConfig.J = preset.J;
+    }
+    if (preset.K !== undefined) {
+        RuntimeConfig.K = preset.K;
+    }
+    if (preset.TIME_SCALE !== undefined) {
+        RuntimeConfig.TIME_SCALE = preset.TIME_SCALE;
+    }
+}
+
 // Initialize and start the simulation
 try {
+    // Detect game mode
+    const gameMode = getGameMode();
+    const isDevMode = gameMode === 'dev';
+    
+    // Apply random preset if in player mode
+    if (!isDevMode) {
+        applyRandomPreset();
+    }
+    
     initialize();
     
-    // Initialize ParameterPanel
-    const parameterPanel = new ParameterPanel(
-        (key, value) => {
-            // Config updater callback
-            updateRuntimeConfig(key, value);
-        },
-        (show) => {
-            // Energy curve toggle callback
-            showEnergyCurve = show;
-        },
-        (maxStamina) => {
-            // Max stamina callback
-            if (heroLogic) {
-                heroLogic.setMaxStamina(maxStamina);
+    // Initialize ParameterPanel only in dev mode
+    let parameterPanel = null;
+    if (isDevMode) {
+        parameterPanel = new ParameterPanel(
+            (key, value) => {
+                // Config updater callback
+                updateRuntimeConfig(key, value);
+            },
+            (show) => {
+                // Energy curve toggle callback
+                showEnergyCurve = show;
+            },
+            (maxStamina) => {
+                // Max stamina callback
+                if (heroLogic) {
+                    heroLogic.setMaxStamina(maxStamina);
+                }
             }
-        }
-    );
-    
-    // Initialize panel with current config values
-    parameterPanel.updateFromConfig(RuntimeConfig);
+        );
+        
+        // Initialize panel with current config values
+        parameterPanel.updateFromConfig(RuntimeConfig);
+    } else {
+        console.log('Player Mode: Parameter panel hidden');
+    }
     
     // Add keyboard input handler for Space key (hero anchor activation)
     let spaceKeyPressed = false;
