@@ -1,69 +1,31 @@
-# Swarmalator Game Development Roadmap
+- [x] **Feature: Hero Anchor Mechanic (Hold to Stop)**
+    - *Goal*: Replace all existing player interactions with a passive "Brake" mechanic. The Hero moves naturally with the swarm until the player holds input to freeze it in place.
+    - *Cleanup*:
+        -   Remove all previous "Teleport", "Boost", or "Inertia" logic.
+        -   Reset Hero and Target radii to match the standard agent size (no longer larger).
+    - *Logic*:
+        1.  **Input**: Listen for `keydown(Space)` or `touchstart`.
+        2.  **Update Loop**:
+            -   Check if Input is **Active**.
+            -   **If Active**: Force `Hero.velocity = (0, 0)` and `Hero.pos = Hero.prevPos` (Lock position).
+            -   **If Inactive**: Allow `PhysicsEngine` to update Hero position normally based on swarm forces.
+    - *Verify*:
+        1.  Run simulation. Hero should drift with the swarm.
+        2.  Hold Spacebar. Hero should stop dead in its tracks immediately.
+        3.  Release Spacebar. Hero should resume drifting from that exact spot.
 
-## Phase 1: Game Mechanics (Web Prototype)
-- [ ] **Feature: Win Condition (Target Reached)**
-    - *Goal*: Detect when Hero reaches the Target and pause the game.
-    - *Logic*: Check distance $d(Hero, Target) < (Radius_H + Radius_T)$.
-    - *Constraint*: Must be checked in the `GameScript` layer (post-physics).
-    - *Unit Test*: `tests/GameRules.test.js`: Mock Hero/Target positions at distance 5 (hit) and 50 (miss). Assert `game.state` changes to `WON`.
-    - *Commit*: `feat(game): implement win condition and pause logic`
 
-- [ ] **Feature: Phase Inversion Mechanic**
-    - *Goal*: Implement "Polarity Switch" capability.
-    - *Input*: **Spacebar** (Toggle).
-    - *Logic*: When active, add $\pi$ (180°) to the Hero's effective phase during force calculation. This turns Attraction into Repulsion and vice versa.
-    - *Visuals*: Hero border color flips (e.g., Cyan $\to$ Magenta) to indicate inverted state.
-    - *Unit Test*: `tests/HeroLogic.test.js`: Verify that activating inversion shifts the output phase used in coupling calculations.
-    - *Commit*: `feat(hero): add phase inversion mechanic mapped to spacebar`
-
-- [ ] **Refactor: Input Swap & Boost**
-    - *Goal*: Rebind controls and default settings.
-    - *Changes*:
-        1.  **Boost**: Move from Spacebar $\to$ **Mouse Click / Touch**.
-        2.  **Defaults**: Set `SHOW_KINETIC_ENERGY = false` in `Config.js`.
-    - *Verify*: Manual playtest. Click to speed up, Space to swap colors.
-    - *Commit*: `refactor(input): swap boost/phase controls and update defaults`
-
-- [ ] **Feature: Relative Phase Visualization**
-    - *Goal*: Stabilize the "Rainbow Flash" by mapping color to *Relative Phase* rather than *Absolute Phase*.
-    - *Logic*: `Hue = (AgentPhase - ReferencePhase)`.
-    - *Config*: Add `VIEW_MODE` with options:
-        1.  `MEDIAN`: Sort phases, pick middle value.
-        2.  `MEAN`: Vector average of all phases (Order Parameter).
-        3.  `MID_RANGE`: $(\min + \max) / 2$.
-    - *Constraint*: Implement in `Renderer` (pure visual change).
-    - *Verify*: Run simulation. The swarm colors should appear "calm" and slowly shifting, rather than strobing rapidly.
-    - *Commit*: `feat(viz): implement relative phase rendering options`
-
-## Phase 2: React Native Migration (The Major Shift)
-- [ ] **Infra: Expo Setup & Responsive Canvas**
-    - *Goal*: Initialize `swarmalator-mobile` (Expo/React Native).
-    - *Responsive Logic*:
-        -   **Web**: Use `window.innerWidth/Height` (Full viewport).
-        -   **Mobile**: Use `Dimensions.get('window')` to set simulation bounds.
-    - *Constraint*: The `PhysicsEngine` must accept dynamic `width/height` in its `init()` method.
-    - *Commit*: `chore(init): setup expo project with responsive physics bounds`
-
-- [ ] **Migration: Port Core & Game Logic**
-    - *Goal*: Move the tested `src/core` (Physics, HeroLogic, Config) to the mobile app.
-    - *UI Change*: **Hide the Parameter Panel**. It should not exist in the mobile Game View.
-    - *Verify*: The app runs a headless simulation loop logging Hero coordinates to console.
-    - *Commit*: `refactor(core): migrate physics engine to react native environment`
-
-- [ ] **Feature: Mobile Controls & Rendering**
-    - *Goal*: Wire up the visuals and interactions.
-    - *Input*: Tap Screen $\to$ Trigger `Boost` (was Mouse Click).
-    - *Input*: Button/Gesture $\to$ Trigger `Phase Inversion` (was Spacebar).
-    - *Render*: Use `<Canvas>` (Skia) to draw the circles using the new Relative Phase logic.
-    - *Commit*: `feat(mobile): implement touch controls and skia renderer`
-
-## Phase 3: Onboarding
-- [ ] **Feature: Slow-Motion Tutorial**
-    - *Goal*: A scripted one-time intro sequence.
-    - *Sequence*:
-        1.  Start `TIME_SCALE = 0.1` (Slow Mo).
-        2.  Overlay: "Tap to Boost" (Wait for input).
-        3.  Overlay: "Space/Button to Invert" (Wait for input).
-        4.  Restore `TIME_SCALE = 1.0`.
-    - *State*: Save `hasSeenTutorial` to local storage.
-    - *Commit*: `feat(ui): add interactive slow-motion tutorial`
+- [x] **Feature: Teleport Mechanic (Click-to-Spawn)**
+    - *Goal*: Implement the core gameplay mechanic where the player clicks to instantly replace the Hero agent.
+    - *Logic*:
+        1.  **Input**: Listen for `mousedown` events on the canvas.
+        2.  **Action**:
+            -   Identify the current `HERO_ID`.
+            -   **Position**: Update `SimulationState` to set the Hero's position `(x, y)` to the exact mouse click coordinates.
+            -   **Dynamics**: Reset the Hero's velocity to `(0, 0)` (stop all momentum).
+            -   **Phase**: Randomize the Hero's phase $\theta$ to a value between $0$ and $2\pi$.
+    - *Constraint*: This logic must directly manipulate the `SimulationState` arrays and must work independently of the physics update loop.
+    - *Verify*:
+        1.  Run the simulation.
+        2.  Click anywhere on the screen.
+        3.  Observe the "Hero" dot disappearing from its old spot and instantly appearing under your cursor, stationary, with a new random color (phase).

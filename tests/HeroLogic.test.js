@@ -1,6 +1,6 @@
 /**
  * Unit tests for HeroLogic module
- * Tests hero boost, position override, and hero-target proximity
+ * Tests hero anchor mechanic (hold to stop)
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -11,6 +11,8 @@ class MockAgent {
     constructor(x, y) {
         this.x = x;
         this.y = y;
+        this.vx = 0;
+        this.vy = 0;
     }
 }
 
@@ -40,8 +42,8 @@ describe('HeroLogic', () => {
             expect(heroLogic.prevPos.y).toBe(300);
         });
 
-        it('should initialize with default boost alpha', () => {
-            expect(heroLogic.boostAlpha).toBe(1.0);
+        it('should initialize with anchor inactive', () => {
+            expect(heroLogic.isInputActive).toBe(false);
         });
 
         it('should initialize with target index', () => {
@@ -55,21 +57,6 @@ describe('HeroLogic', () => {
         });
     });
 
-    describe('setBoostAlpha', () => {
-        it('should set boost alpha value', () => {
-            heroLogic.setBoostAlpha(3.0);
-            expect(heroLogic.boostAlpha).toBe(3.0);
-        });
-
-        it('should clamp boost alpha to [1.0, 16.0]', () => {
-            heroLogic.setBoostAlpha(-1.0);
-            expect(heroLogic.boostAlpha).toBe(1.0);
-            
-            heroLogic.setBoostAlpha(20.0);
-            expect(heroLogic.boostAlpha).toBe(16.0);
-        });
-    });
-
     describe('setInputActive', () => {
         it('should set input active state', () => {
             heroLogic.setInputActive(true);
@@ -80,92 +67,63 @@ describe('HeroLogic', () => {
         });
     });
 
-    describe('update - no input active', () => {
-        it('should not override hero position when input inactive', () => {
-            const originalX = agents[0].x;
-            const originalY = agents[0].y;
-            
-            // Move hero
+    describe('update - anchor inactive', () => {
+        it('should allow hero to move normally when anchor inactive', () => {
+            // Physics moves hero to new position
             agents[0].x = 410;
             agents[0].y = 310;
+            agents[0].vx = 10;
+            agents[0].vy = 10;
             
             heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
             
             // Position should remain as set by physics
             expect(agents[0].x).toBe(410);
             expect(agents[0].y).toBe(310);
-        });
-
-        it('should update prevPos after update', () => {
-            agents[0].x = 410;
-            agents[0].y = 310;
             
-            heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
-            
+            // prevPos should be updated to new position
             expect(heroLogic.prevPos.x).toBe(410);
             expect(heroLogic.prevPos.y).toBe(310);
         });
+    });
 
-        it('should not be boosting when input inactive', () => {
+    describe('update - anchor active', () => {
+        beforeEach(() => {
+            // Set anchor point
+            heroLogic.setPrevPos(400, 300);
+            heroLogic.setInputActive(true);
+        });
+
+        it('should lock hero position when anchor active', () => {
+            // Physics tries to move hero
+            agents[0].x = 410;
+            agents[0].y = 310;
+            agents[0].vx = 10;
+            agents[0].vy = 10;
+            
             heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
-            expect(heroLogic.isBoosting).toBe(false);
+            
+            // Position should be locked to prevPos
+            expect(agents[0].x).toBe(400);
+            expect(agents[0].y).toBe(300);
+        });
+
+        it('should reset hero velocity to zero when anchor active', () => {
+            agents[0].vx = 100;
+            agents[0].vy = 50;
+            
+            heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
+            
+            expect(agents[0].vx).toBe(0);
+            expect(agents[0].vy).toBe(0);
         });
     });
 
-    describe('update - input active', () => {
-        beforeEach(() => {
-            heroLogic.setInputActive(true);
-            heroLogic.setBoostAlpha(3.0);
-        });
-
-        it('should boost hero position along natural trajectory', () => {
-            // Move hero from (400, 300) to (410, 310) via physics
-            agents[0].x = 410;
-            agents[0].y = 310;
-            
-            heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
-            
-            // boostStep = naturalStep * boostAlpha = (10, 10) * 3.0 = (30, 30)
-            // newPos = prevPos + boostStep = (400, 300) + (30, 30) = (430, 330)
-            expect(agents[0].x).toBe(430);
-            expect(agents[0].y).toBe(330);
-        });
-
-        it('should set isBoosting flag when input active', () => {
-            agents[0].x = 410;
-            agents[0].y = 310;
-            
-            heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
-            
-            expect(heroLogic.isBoosting).toBe(true);
-        });
-
-        it('should handle toroidal boundary wrapping', () => {
-            // Place hero near right edge
-            agents[0].x = 790;
-            agents[0].y = 300;
-            heroLogic.prevPos = { x: 790, y: 300 };
-            
-            // Move hero (would wrap around)
-            agents[0].x = 10; // Wrapped from 800+
-            agents[0].y = 300;
-            
-            heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
-            
-            // Should handle wrapping correctly
-            expect(agents[0].x).toBeGreaterThanOrEqual(0);
-            expect(agents[0].x).toBeLessThan(canvasWidth);
-        });
-
-        it('should update prevPos after override', () => {
-            agents[0].x = 410;
-            agents[0].y = 310;
-            
-            heroLogic.update(agents, deltaTime, canvasWidth, canvasHeight);
-            
-            // prevPos should be updated to new position
-            expect(heroLogic.prevPos.x).toBe(agents[0].x);
-            expect(heroLogic.prevPos.y).toBe(agents[0].y);
+    describe('setPrevPos', () => {
+        it('should set previous position', () => {
+            heroLogic.setPrevPos(100, 200);
+            expect(heroLogic.prevPos.x).toBe(100);
+            expect(heroLogic.prevPos.y).toBe(200);
         });
     });
 
@@ -180,21 +138,21 @@ describe('HeroLogic', () => {
             expect(result).toBe(false);
         });
 
-        it('should return false when distance exceeds 24 pixels', () => {
+        it('should return false when distance exceeds 12 pixels', () => {
             agents[0].x = 100;
             agents[0].y = 100;
-            agents[1].x = 130; // 30 pixels away (> 24)
+            agents[1].x = 115; // 15 pixels away (> 12)
             agents[1].y = 100;
             
             const result = heroLogic.checkHeroTargetProximity(agents, canvasWidth, canvasHeight);
             expect(result).toBe(false);
         });
 
-        it('should return true when hero and target are closest and within 24 pixels', () => {
+        it('should return true when hero and target are closest and within 12 pixels', () => {
             // Place hero and target close together, with other agents far away
             agents[0].x = 100;
             agents[0].y = 100;
-            agents[1].x = 110; // 10 pixels away (< 24)
+            agents[1].x = 110; // 10 pixels away (< 12)
             agents[1].y = 100;
             agents[2].x = 500; // Far away
             agents[2].y = 500;
@@ -202,31 +160,27 @@ describe('HeroLogic', () => {
             const result = heroLogic.checkHeroTargetProximity(agents, canvasWidth, canvasHeight);
             expect(result).toBe(true);
         });
+    });
 
-        it('should return false when another agent is closer to hero than target', () => {
+    describe('checkWinCondition', () => {
+        it('should return true when Hero and Target collide (distance < 8 pixels)', () => {
             agents[0].x = 100;
             agents[0].y = 100;
-            agents[1].x = 120; // 20 pixels away
+            agents[1].x = 105; // 5 pixels away (< 8)
             agents[1].y = 100;
-            agents[2].x = 105; // 5 pixels away (closer than target)
-            agents[2].y = 100;
             
-            const result = heroLogic.checkHeroTargetProximity(agents, canvasWidth, canvasHeight);
-            expect(result).toBe(false);
+            const result = heroLogic.checkWinCondition(agents, canvasWidth, canvasHeight);
+            expect(result).toBe(true);
         });
 
-        it('should handle toroidal wrapping in proximity check', () => {
-            // Place hero and target near canvas edges (wrapped)
-            agents[0].x = 10;
+        it('should return false when Hero and Target are far apart (distance >= 8 pixels)', () => {
+            agents[0].x = 100;
             agents[0].y = 100;
-            agents[1].x = 790; // Wrapped: close to hero
+            agents[1].x = 150; // 50 pixels away (>= 8)
             agents[1].y = 100;
-            agents[2].x = 400; // Far away
-            agents[2].y = 400;
             
-            const result = heroLogic.checkHeroTargetProximity(agents, canvasWidth, canvasHeight);
-            // Should handle wrapping correctly
-            expect(typeof result).toBe('boolean');
+            const result = heroLogic.checkWinCondition(agents, canvasWidth, canvasHeight);
+            expect(result).toBe(false);
         });
     });
 

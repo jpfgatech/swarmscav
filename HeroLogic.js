@@ -1,24 +1,20 @@
 /**
- * HeroLogic: Player-controlled boost for a Hero agent
+ * HeroLogic: Hero Anchor Mechanic (Hold to Stop)
  * 
- * This module implements script-level override for a Hero agent without
- * modifying the core Physics Engine. The Hero agent can boost along its
- * natural trajectory when input (Space/Touch) is active, while all other
- * agents follow standard Overdamped dynamics.
+ * This module implements a passive "Brake" mechanic for the Hero agent.
+ * The Hero moves naturally with the swarm until the player holds input to freeze it in place.
  * 
  * Architecture:
  * - Core physics runs standard Overdamped dynamics (v ∝ F) for all agents
- * - HeroLogic runs AFTER the core update to override Hero's position with boost
+ * - HeroLogic runs AFTER the core update to lock Hero position when input is active
  * - Target agent (index 1) is rendered as gold and used for proximity pause
  */
 
 export class HeroLogic {
     constructor(heroIndex = 0, initialAgent = null) {
         this.heroIndex = heroIndex; // Index of the hero agent
-        this.prevPos = { x: 0, y: 0 }; // Previous position for velocity calculation
-        this.isInputActive = false; // Whether input (Space/Touch) is currently active
-        this.boostAlpha = 1.0; // Boost multiplier (1.0 = normal speed, 16.0 = 17x speed)
-        this.isBoosting = false; // Whether currently boosting (for visual feedback)
+        this.prevPos = { x: 0, y: 0 }; // Previous position (locked position when anchored)
+        this.isInputActive = false; // Whether input (Space/Touch) is currently active (anchor)
         this.targetIndex = 1; // Index of the target agent (default: agent at index 1)
         
         // Initialize previous position if provided
@@ -28,23 +24,15 @@ export class HeroLogic {
     }
     
     /**
-     * Sets the input state (Space key or touch)
-     * @param {boolean} active - Whether input is active
+     * Sets the input state (Space key or touch) - activates anchor
+     * @param {boolean} active - Whether input is active (anchor active)
      */
     setInputActive(active) {
         this.isInputActive = active;
     }
     
     /**
-     * Sets the boost alpha parameter
-     * @param {number} boostAlpha - Boost multiplier (1.0 to 16.0)
-     */
-    setBoostAlpha(boostAlpha) {
-        this.boostAlpha = Math.max(1.0, Math.min(16.0, boostAlpha));
-    }
-    
-    /**
-     * Updates hero position with inertia override
+     * Updates hero position with anchor mechanic
      * This should be called AFTER physics update (agent.update())
      * @param {Array} agents - Array of Agent objects
      * @param {number} deltaTime - Time step
@@ -57,59 +45,23 @@ export class HeroLogic {
         }
         
         const hero = agents[this.heroIndex];
-        const currentPos = { x: hero.x, y: hero.y };
-        
-        // Calculate natural step (displacement from physics update)
-        // Handle toroidal wrapping for step calculation
-        let dx = currentPos.x - this.prevPos.x;
-        let dy = currentPos.y - this.prevPos.y;
-        
-        // Handle toroidal wrapping
-        if (Math.abs(dx) > canvasWidth / 2) {
-            dx = dx > 0 ? dx - canvasWidth : dx + canvasWidth;
-        }
-        if (Math.abs(dy) > canvasHeight / 2) {
-            dy = dy > 0 ? dy - canvasHeight : dy + canvasHeight;
-        }
-        
-        const naturalStep = {
-            x: dx,
-            y: dy
-        };
         
         if (this.isInputActive) {
-            // Turbo Boost mode: Move faster along natural trajectory
-            this.isBoosting = true;
-            // boostStep = naturalStep * boostAlpha (boostAlpha is 1.0 to 16.0)
-            const boostStep = {
-                x: naturalStep.x * this.boostAlpha,
-                y: naturalStep.y * this.boostAlpha
-            };
-            
-            // Override position: HeroNewPos = HeroPrevPos + boostStep
-            let newX = this.prevPos.x + boostStep.x;
-            let newY = this.prevPos.y + boostStep.y;
-            
-            // Handle toroidal boundary wrapping
-            if (newX < 0) newX += canvasWidth;
-            if (newX >= canvasWidth) newX -= canvasWidth;
-            if (newY < 0) newY += canvasHeight;
-            if (newY >= canvasHeight) newY -= canvasHeight;
-            
-            // Update hero position
-            hero.x = newX;
-            hero.y = newY;
+            // Anchor active: Lock position and stop velocity
+            // Force Hero.velocity = (0, 0) and Hero.pos = Hero.prevPos
+            hero.x = this.prevPos.x;
+            hero.y = this.prevPos.y;
+            hero.vx = 0;
+            hero.vy = 0;
         } else {
-            // No input: Hero follows physics normally
-            this.isBoosting = false;
+            // Anchor inactive: Allow PhysicsEngine to update Hero position normally
+            // Update previous position for next frame (for anchor lock)
+            this.prevPos = { x: hero.x, y: hero.y };
         }
-        
-        // Update previous position for next frame
-        this.prevPos = { x: hero.x, y: hero.y };
     }
     
     /**
-     * Renders the hero agent with special styling (cyan)
+     * Renders the hero agent with phase-based color (standard agent size)
      * @param {CanvasRenderingContext2D} ctx - 2D rendering context
      * @param {Array} agents - Array of Agent objects
      */
@@ -120,30 +72,24 @@ export class HeroLogic {
         
         const hero = agents[this.heroIndex];
         
-        // Base radius
-        let radius = 6;
+        // Standard agent radius (4 pixels, same as regular agents)
+        const radius = 4;
         
-        // Pulse size when boosting (visual feedback)
-        if (this.isBoosting) {
-            // Pulse effect: slightly larger when boosting (scales with boostAlpha)
-            const pulseFactor = 1.0 + ((this.boostAlpha - 1.0) / 15.0) * 0.3; // Up to 30% larger at max boost
-            radius = 6 * pulseFactor;
-        }
-        
-        // Draw hero as cyan circle
-        ctx.fillStyle = 'cyan';
+        // Draw hero with phase-based color (like regular agents)
+        // Use agent's color property which is updated based on phase
+        ctx.fillStyle = hero.color;
         ctx.beginPath();
         ctx.arc(hero.x, hero.y, radius, 0, 2 * Math.PI);
         ctx.fill();
         
-        // Draw white border
+        // Draw white border to distinguish hero
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
         ctx.stroke();
     }
     
     /**
-     * Renders the target agent with special styling (gold)
+     * Renders the target agent with special styling (gold, standard agent size)
      * @param {CanvasRenderingContext2D} ctx - 2D rendering context
      * @param {Array} agents - Array of Agent objects
      */
@@ -154,13 +100,16 @@ export class HeroLogic {
         
         const target = agents[this.targetIndex];
         
-        // Draw target as gold circle (slightly larger than regular agents)
+        // Standard agent radius (4 pixels, same as regular agents)
+        const radius = 4;
+        
+        // Draw target as gold circle
         ctx.fillStyle = 'gold';
         ctx.beginPath();
-        ctx.arc(target.x, target.y, 6, 0, 2 * Math.PI);
+        ctx.arc(target.x, target.y, radius, 0, 2 * Math.PI);
         ctx.fill();
         
-        // Draw white border
+        // Draw white border to distinguish target
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
         ctx.stroke();
@@ -194,7 +143,7 @@ export class HeroLogic {
         }
         
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const maxDistance = 24; // 3x diameter (3 * 8 pixels)
+        const maxDistance = 12; // 3x diameter (3 * 4 pixels, standard agent size)
         
         // Check if within range
         if (distance > maxDistance) {
@@ -282,9 +231,9 @@ export class HeroLogic {
         const distance = Math.sqrt(dx * dx + dy * dy);
         
         // Win condition: distance < (Radius_H + Radius_T)
-        // Hero radius = 6, Target radius = 6, so collision distance = 12 pixels
-        const HERO_RADIUS = 6;
-        const TARGET_RADIUS = 6;
+        // Hero radius = 4, Target radius = 4 (standard agent size), so collision distance = 8 pixels
+        const HERO_RADIUS = 4;
+        const TARGET_RADIUS = 4;
         const COLLISION_DISTANCE = HERO_RADIUS + TARGET_RADIUS;
         
         return distance < COLLISION_DISTANCE;
@@ -296,5 +245,14 @@ export class HeroLogic {
      */
     getHeroIndex() {
         return this.heroIndex;
+    }
+    
+    /**
+     * Sets the previous position (used for teleport to prevent velocity jump)
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     */
+    setPrevPos(x, y) {
+        this.prevPos = { x, y };
     }
 }

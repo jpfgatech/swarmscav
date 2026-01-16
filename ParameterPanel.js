@@ -52,7 +52,7 @@ export class ParameterPanel {
         this.energyToggleCallback = energyToggleCallback; // Function to toggle energy curve
         this.heroAlphaCallback = heroAlphaCallback; // Function to update hero alpha (optional)
         this.heroBoostCallback = heroBoostCallback; // Function to update hero boost alpha (optional)
-        this.showEnergyCurve = true; // Default: show energy curve
+        this.showEnergyCurve = false; // Default: hide energy curve
         
         this.createPanel();
     }
@@ -138,8 +138,8 @@ export class ParameterPanel {
                     <h4>Hero Turbo Boost</h4>
                     
                     <div class="control-row">
-                        <label for="hero-boost-slider">Boost Factor: <span id="hero-boost-value">1.0</span></label>
-                        <input type="range" id="hero-boost-slider" min="1" max="16" step="0.1" value="1.0" class="slider">
+                        <label for="hero-boost-slider">Boost Factor: <span id="hero-boost-value">16.0</span></label>
+                        <input type="range" id="hero-boost-slider" min="1" max="16" step="0.1" value="16.0" class="slider">
                     </div>
                 </div>
                 
@@ -149,7 +149,7 @@ export class ParameterPanel {
                     
                     <div class="control-row">
                         <label class="toggle-label">
-                            <input type="checkbox" id="energy-curve-toggle" checked>
+                            <input type="checkbox" id="energy-curve-toggle">
                             <span>Show Kinetic Energy Curve</span>
                         </label>
                     </div>
@@ -448,25 +448,15 @@ export class ParameterPanel {
             });
         });
         
-        // Hero boost factor slider
-        const heroBoostSlider = document.getElementById('hero-boost-slider');
-        const heroBoostValue = document.getElementById('hero-boost-value');
-        if (heroBoostSlider && heroBoostValue) {
-            heroBoostSlider.addEventListener('input', (e) => {
-                const value = parseFloat(e.target.value);
-                heroBoostValue.textContent = value.toFixed(1);
-                if (this.heroBoostCallback) {
-                    this.heroBoostCallback(value);
-                }
-            });
-        }
-        
         // Energy curve toggle
         const energyToggle = document.getElementById('energy-curve-toggle');
-        energyToggle.addEventListener('change', (e) => {
-            this.showEnergyCurve = e.target.checked;
-            this.energyToggleCallback(this.showEnergyCurve);
-        });
+        if (energyToggle) {
+            energyToggle.checked = this.showEnergyCurve; // Set initial state to false
+            energyToggle.addEventListener('change', (e) => {
+                this.showEnergyCurve = e.target.checked;
+                this.energyToggleCallback(this.showEnergyCurve);
+            });
+        }
     }
     
     /**

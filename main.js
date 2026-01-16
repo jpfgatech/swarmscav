@@ -1,6 +1,5 @@
 import { Agent } from './Agent.js';
 import { EnergyMonitor } from './EnergyMonitor.js';
-import { AnalysisMode } from './AnalysisMode.js';
 import { HeroLogic } from './HeroLogic.js';
 import {
     N,
@@ -41,14 +40,13 @@ const swarm = [];
 // Energy monitor for convergence detection (with configurable thresholds)
 const energyMonitor = new EnergyMonitor(600, ENERGY_THRESHOLD_PER_AGENT, ENERGY_KILL_FRAMES);
 
-// Analysis mode for agent selection and Gabriel Graph monitoring
-const analysisMode = new AnalysisMode();
+// No agent selection - only hero and target exist
 
 // Hero logic for player-controlled inertia
 let heroLogic = null;
 
 // Flag to control energy curve visibility
-let showEnergyCurve = true;
+let showEnergyCurve = false;
 
 // Timing for frame-rate independent physics
 let lastTime = 0;
@@ -260,7 +258,7 @@ function updatePhysics(deltaTime) {
         agent.update(deltaTime, canvas.width, canvas.height);
     }
     
-    // Hero boost override (runs AFTER physics update)
+    // Hero anchor override (runs AFTER physics update)
     if (heroLogic) {
         heroLogic.update(swarm, deltaTime, canvas.width, canvas.height);
         
@@ -278,14 +276,7 @@ function updatePhysics(deltaTime) {
         }
     }
     
-    // Check Gabriel Graph condition for selected agents
-    if (analysisMode.getSelectionCount() >= 2) {
-        const shouldPause = analysisMode.checkGabrielCondition(swarm, canvas.width, canvas.height);
-        if (shouldPause) {
-            analysisMode.isPaused = true;
-            window.SIMULATION_PAUSED = true;
-        }
-    }
+    // Proximity pause only applies to hero and target (no agent selection)
     
     // Measure kinetic energy and check for convergence
     const currentEnergy = energyMonitor.measure(swarm);
@@ -327,7 +318,7 @@ function render(currentTime) {
     const deltaTime = rawDeltaTime * RuntimeConfig.TIME_SCALE;
     
     // Update physics only if not paused
-    if (!analysisMode.isPaused && !window.SIMULATION_PAUSED) {
+    if (!window.SIMULATION_PAUSED) {
         updatePhysics(deltaTime);
     }
     
@@ -345,19 +336,25 @@ function render(currentTime) {
         console.warn('Swarm is empty - cannot render');
         return;
     }
+    
+    // Update colors for all agents (including hero)
     for (const agent of swarm) {
         agent.updateColor();
-        agent.draw(ctx);
     }
     
-    // Render hero with special styling (cyan, before selected agents)
+    // Draw all agents (except hero and target which are rendered separately)
+    for (let i = 0; i < swarm.length; i++) {
+        // Skip hero (index 0) and target (index 1) - they're rendered separately
+        if (i !== 0 && i !== 1) {
+            swarm[i].draw(ctx);
+        }
+    }
+    
+    // Render hero with phase-based color (after color update)
     if (heroLogic) {
         heroLogic.renderHero(ctx, swarm);
         heroLogic.renderTarget(ctx, swarm);
     }
-    
-    // Render selected agents with special styling (overlay on top)
-    analysisMode.renderSelectedAgents(ctx, swarm);
     
     // Render energy monitor (EKG-style graph) if enabled
     if (showEnergyCurve) {
@@ -379,7 +376,6 @@ try {
     initialize();
     
     // Initialize ParameterPanel
-    // Note: heroLogic is initialized in initialize() above, so it's available here
     const parameterPanel = new ParameterPanel(
         (key, value) => {
             // Config updater callback
@@ -388,37 +384,25 @@ try {
         (show) => {
             // Energy curve toggle callback
             showEnergyCurve = show;
-        },
-        (boostAlpha) => {
-            // Hero boost factor callback
-            if (heroLogic) {
-                heroLogic.setBoostAlpha(boostAlpha);
-            }
         }
     );
     
     // Initialize panel with current config values
     parameterPanel.updateFromConfig(RuntimeConfig);
     
-    // Add mouse click handler for agent selection
-    canvas.addEventListener('mousedown', (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        
-        const selectedIndex = analysisMode.handleMouseClick(mouseX, mouseY, swarm, canvas.width, canvas.height);
-        if (selectedIndex !== null) {
-            console.log(`Agent ${selectedIndex} ${analysisMode.selectedAgents.has(selectedIndex) ? 'selected' : 'deselected'}`);
-        }
-    });
-    
-    // Add keyboard input handler for Space key (hero inertia activation)
+    // Add keyboard input handler for Space key (hero anchor activation)
     let spaceKeyPressed = false;
     document.addEventListener('keydown', (e) => {
         if (e.code === 'Space' && !spaceKeyPressed) {
             e.preventDefault();
             spaceKeyPressed = true;
-            if (heroLogic) {
+            if (heroLogic && swarm.length > 0) {
+                // Store current position as anchor point
+                const heroIndex = heroLogic.getHeroIndex();
+                if (heroIndex < swarm.length) {
+                    const hero = swarm[heroIndex];
+                    heroLogic.setPrevPos(hero.x, hero.y);
+                }
                 heroLogic.setInputActive(true);
             }
         }
@@ -434,10 +418,16 @@ try {
         }
     });
     
-    // Add touch support for mobile
+    // Add touch support for mobile (anchor activation)
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        if (heroLogic) {
+        if (heroLogic && swarm.length > 0) {
+            // Store current position as anchor point
+            const heroIndex = heroLogic.getHeroIndex();
+            if (heroIndex < swarm.length) {
+                const hero = swarm[heroIndex];
+                heroLogic.setPrevPos(hero.x, hero.y);
+            }
             heroLogic.setInputActive(true);
         }
     });
