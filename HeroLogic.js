@@ -270,11 +270,12 @@ export class HeroLogic {
     }
     
     /**
-     * Renders the hero agent with phase-based color (standard agent size)
+     * Renders the hero with fuzzy boundary and glow effect
      * @param {CanvasRenderingContext2D} ctx - 2D rendering context
      * @param {Array} agents - Array of Agent objects
+     * @param {number} time - Current time in seconds (for glow animation)
      */
-    renderHero(ctx, agents) {
+    renderHero(ctx, agents, time) {
         if (this.heroIndex >= agents.length) {
             return; // Hero index out of bounds
         }
@@ -283,15 +284,31 @@ export class HeroLogic {
         
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
+        const glowRadius = radius * 3.5; // 3-4x agent radius (14px)
         
-        // Draw hero with special color (temporarily for visibility without white border)
-        // Use bright cyan to make hero recognizable
-        ctx.fillStyle = 'rgb(0, 255, 255)'; // Bright cyan
+        // Draw hero with fuzzy boundary (radial gradient fade-out)
+        const gradient = ctx.createRadialGradient(hero.x, hero.y, 0, hero.x, hero.y, radius);
+        gradient.addColorStop(0, 'rgb(0, 255, 255)'); // Bright cyan at center
+        gradient.addColorStop(0.7, 'rgba(0, 255, 255, 0.8)'); // Slight fade
+        gradient.addColorStop(1, 'rgba(0, 255, 255, 0)'); // Fade to transparent at edge
+        
+        ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(hero.x, hero.y, radius, 0, 2 * Math.PI);
         ctx.fill();
         
-        // White border removed - user doesn't want white stroke
+        // Render god rays glow effect
+        renderGodRays(
+            ctx,
+            hero.x,
+            hero.y,
+            'rgb(0, 255, 255)',
+            GlowConfig.hero.rayCount,
+            GlowConfig.hero.rotationSpeed,
+            time,
+            glowRadius,
+            `hero-${this.heroIndex}`
+        );
     }
     
     /**
