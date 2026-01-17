@@ -3,13 +3,6 @@ import { EnergyMonitor } from './EnergyMonitor.js';
 import { HeroLogic } from './HeroLogic.js';
 import {
     N,
-    J,
-    K,
-    BASE_OMEGA,
-    OMEGA_VARIATION,
-    TIME_SCALE,
-    EPSILON,
-    REPULSION_STRENGTH,
     ENERGY_THRESHOLD_PER_AGENT,
     ENERGY_KILL_FRAMES,
     ENABLE_AUTO_KILL
@@ -403,24 +396,15 @@ const PRESET_CONFIGS = [
 
 // Apply a random preset configuration
 // Returns the preset index that was applied
-// NOTE: This resets ALL parameters to defaults first, then applies only the preset-specific overrides
+// NOTE: Only modifies J, K, and optionally TIME_SCALE. All other parameters remain as initialized.
 function applyRandomPreset() {
     const presetIndex = Math.floor(Math.random() * PRESET_CONFIGS.length);
     const preset = PRESET_CONFIGS[presetIndex];
     console.log('Player Mode: Applying preset', presetIndex, preset);
     
-    // First, reset ALL RuntimeConfig values to their defaults (ignoring URL parameters)
-    // These are the true defaults from config.js (same as INIT_* constants in runtimeConfig.js)
-    // This ensures parameters not specified in the preset remain at default values
-    RuntimeConfig.J = J; // From config.js (default: 1.2)
-    RuntimeConfig.K = K; // From config.js (default: 0.00)
-    RuntimeConfig.BASE_OMEGA = BASE_OMEGA; // From config.js (default: 0.02)
-    RuntimeConfig.OMEGA_VARIATION = OMEGA_VARIATION; // From config.js (default: 0.02)
-    RuntimeConfig.TIME_SCALE = TIME_SCALE; // From config.js (default: 100.0)
-    RuntimeConfig.EPSILON = EPSILON; // From config.js (default: 4.0)
-    RuntimeConfig.REPULSION_STRENGTH = REPULSION_STRENGTH; // From config.js (default: 4000.0)
-    
-    // Then apply only the preset-specific overrides
+    // Only apply preset-specific overrides (as specified in record.md lines 77-80)
+    // All other parameters (BASE_OMEGA, EPSILON, REPULSION_STRENGTH, etc.) remain
+    // as they were initialized in RuntimeConfig (which could include URL parameter overrides)
     if (preset.J !== undefined) {
         RuntimeConfig.J = preset.J;
     }
