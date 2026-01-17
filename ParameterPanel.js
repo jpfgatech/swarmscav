@@ -1,4 +1,4 @@
-/**
+t/**
  * ParameterPanel: Interactive UI for real-time parameter tuning
  * 
  * Provides sliders and controls for:
@@ -47,10 +47,11 @@ export function unmapLogScale(value, min, max) {
  * Creates and manages the interactive parameter panel
  */
 export class ParameterPanel {
-    constructor(configUpdater, energyToggleCallback, maxStaminaCallback = null, isDevMode = true, presetIndex = null) {
+    constructor(configUpdater, energyToggleCallback, maxStaminaCallback = null, isDevMode = true, presetIndex = null, presetCallback = null) {
         this.configUpdater = configUpdater; // Function to update config values
         this.energyToggleCallback = energyToggleCallback; // Function to toggle energy curve
         this.maxStaminaCallback = maxStaminaCallback; // Function to update max stamina (optional)
+        this.presetCallback = presetCallback; // Function to apply preset config (for dev mode)
         this.showEnergyCurve = false; // Default: hide energy curve
         this.isDevMode = isDevMode; // Whether in developer mode (text inputs) or player mode (sliders)
         this.presetIndex = presetIndex; // Current preset index (for player mode display)
@@ -60,6 +61,19 @@ export class ParameterPanel {
     
     generateDevModeHTML() {
         return `
+                <!-- Preset Selector -->
+                <div class="control-group">
+                    <h4>Preset Configurations</h4>
+                    <div class="control-row">
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-preset-index="0">Preset 1</button>
+                            <button class="preset-btn" data-preset-index="1">Preset 2</button>
+                            <button class="preset-btn" data-preset-index="2">Preset 3</button>
+                            <button class="preset-btn" data-preset-index="3">Preset 4</button>
+                        </div>
+                    </div>
+                </div>
+                
                 <!-- Coupling Controls -->
                 <div class="control-group">
                     <h4>Coupling Constants</h4>
@@ -680,8 +694,26 @@ export class ParameterPanel {
             });
         }
         
-        // Preset buttons for J and K
-        document.querySelectorAll('.preset-btn').forEach(btn => {
+        // Preset selector buttons (dev mode only)
+        if (this.isDevMode && this.presetCallback) {
+            document.querySelectorAll('.preset-btn[data-preset-index]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const presetIndex = parseInt(e.target.dataset.presetIndex);
+                    if (this.presetCallback) {
+                        this.presetCallback(presetIndex);
+                        // Update panel values after preset is applied
+                        setTimeout(() => {
+                            if (this.configUpdater) {
+                                // Panel will be updated by caller
+                            }
+                        }, 10);
+                    }
+                });
+            });
+        }
+        
+        // Preset buttons for J and K (player mode only)
+        document.querySelectorAll('.preset-btn[data-param]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const param = e.target.dataset.param;
                 const absValue = parseFloat(e.target.dataset.value);

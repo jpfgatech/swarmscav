@@ -462,6 +462,33 @@ try {
     
     initialize();
     
+    // Apply preset configuration (for dev mode preset selector)
+    function applyPresetConfig(presetIndex) {
+        if (presetIndex < 0 || presetIndex >= PRESET_CONFIGS.length) {
+            console.error('Invalid preset index:', presetIndex);
+            return;
+        }
+        
+        const preset = PRESET_CONFIGS[presetIndex];
+        console.log('Dev Mode: Applying preset', presetIndex, preset);
+        
+        // Apply preset-specific overrides
+        if (preset.J !== undefined) {
+            RuntimeConfig.J = preset.J;
+        }
+        if (preset.K !== undefined) {
+            RuntimeConfig.K = preset.K;
+        }
+        if (preset.TIME_SCALE !== undefined) {
+            RuntimeConfig.TIME_SCALE = preset.TIME_SCALE;
+        }
+        
+        // Update panel to reflect new values
+        if (parameterPanel) {
+            parameterPanel.updateFromConfig(RuntimeConfig);
+        }
+    }
+    
     // Initialize ParameterPanel (shown only in dev mode)
     let parameterPanel = null;
     if (isDevMode) {
@@ -481,7 +508,8 @@ try {
                 }
             },
             true, // isDevMode = true
-            null  // presetIndex (not applicable in dev mode)
+            null, // presetIndex (not applicable in dev mode)
+            applyPresetConfig // presetCallback for dev mode preset selector
         );
         
         // Initialize panel with current config values
