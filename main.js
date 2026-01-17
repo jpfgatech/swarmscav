@@ -111,8 +111,9 @@ function initialize() {
     console.log(`Initialized ${swarm.length} agents (centered)`);
     
     // Initialize hero logic (hero is agent at index 0)
+    // Targets are now separate objects (not agents), initialized in HeroLogic constructor
     if (swarm.length > 0) {
-        heroLogic = new HeroLogic(0, swarm[0]);
+        heroLogic = new HeroLogic(0, swarm[0], canvas.width, canvas.height);
     }
 }
 
@@ -264,13 +265,13 @@ function updatePhysics(deltaTime, realDeltaTime) {
     if (heroLogic) {
         heroLogic.update(swarm, realDeltaTime, canvas.width, canvas.height);
         
-        // Check win condition: Hero reaches Target (collision detection)
+        // Check win condition: Hero collects all targets
         if (heroLogic.checkWinCondition(swarm, canvas.width, canvas.height)) {
             window.SIMULATION_PAUSED = true;
             window.GAME_STATE = 'WON';
-            console.log('Game won: Hero reached Target!');
+            console.log('Game won: All targets collected!');
         } else {
-            // Check if hero and target are closest and within 3x diameter (pause condition)
+            // Check if hero and any target are closest and within 3x diameter (pause condition)
             if (heroLogic.checkHeroTargetProximity(swarm, canvas.width, canvas.height)) {
                 window.SIMULATION_PAUSED = true;
                 console.log('Simulation paused: Hero and Target are closest and within range');
@@ -344,10 +345,11 @@ function render(currentTime) {
         agent.updateColor();
     }
     
-    // Draw all agents (except hero and target which are rendered separately)
+    // Draw all agents (except hero which is rendered separately)
     for (let i = 0; i < swarm.length; i++) {
-        // Skip hero (index 0) and target (index 1) - they're rendered separately
-        if (i !== 0 && i !== 1) {
+        // Skip hero (index 0) - it's rendered separately with phase color
+        // Targets are now separate objects (not agents), rendered separately
+        if (i !== 0) {
             swarm[i].draw(ctx);
         }
     }

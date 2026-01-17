@@ -1,5 +1,5 @@
 /**
- * HeroLogic: Hero Anchor Mechanic (Hold to Stop)
+ * HeroLogic: Hero Anchor Mechanic (Hold to Stop) & Multi-Target Scavenger Hunt
  * 
  * This module implements a passive "Brake" mechanic for the Hero agent.
  * The Hero moves naturally with the swarm until the player holds input to freeze it in place.
@@ -7,15 +7,20 @@
  * Architecture:
  * - Core physics runs standard Overdamped dynamics (v ∝ F) for all agents
  * - HeroLogic runs AFTER the core update to lock Hero position when input is active
- * - Target agent (index 1) is rendered as gold and used for proximity pause
+ * - Tracks 10 target objects {x, y, active} (not agents) for scavenger hunt
+ * - Targets are rendered as gold dots and collected when Hero collides with them
+ * - Win condition: all 10 targets collected
  */
 
 export class HeroLogic {
-    constructor(heroIndex = 0, initialAgent = null) {
+    constructor(heroIndex = 0, initialAgent = null, canvasWidth = 800, canvasHeight = 600) {
         this.heroIndex = heroIndex; // Index of the hero agent
         this.prevPos = { x: 0, y: 0 }; // Previous position (locked position when anchored)
         this.isInputActive = false; // Whether input (Space/Touch) is currently active (anchor)
-        this.targetIndex = 1; // Index of the target agent (default: agent at index 1)
+        
+        // Multi-target scavenger hunt: array of 10 target objects {x, y, active}
+        this.targets = [];
+        this.initializeTargets(canvasWidth, canvasHeight);
         
         // Stamina system
         this.maxStamina = 2.0; // Maximum stamina in seconds
@@ -25,6 +30,22 @@ export class HeroLogic {
         // Initialize previous position if provided
         if (initialAgent) {
             this.prevPos = { x: initialAgent.x, y: initialAgent.y };
+        }
+    }
+    
+    /**
+     * Initializes 10 targets randomly within canvas bounds
+     * @param {number} canvasWidth - Canvas width
+     * @param {number} canvasHeight - Canvas height
+     */
+    initializeTargets(canvasWidth, canvasHeight) {
+        this.targets = [];
+        for (let i = 0; i < 10; i++) {
+            this.targets.push({
+                x: Math.random() * canvasWidth,
+                y: Math.random() * canvasHeight,
+                active: true
+            });
         }
     }
     
@@ -134,154 +155,183 @@ export class HeroLogic {
     }
     
     /**
-     * Renders the target agent with special styling (gold, standard agent size)
+     * Renders all active targets with special styling (gold, standard agent size)
      * @param {CanvasRenderingContext2D} ctx - 2D rendering context
-     * @param {Array} agents - Array of Agent objects
+     * @param {Array} agents - Array of Agent objects (not used, kept for compatibility)
      */
     renderTarget(ctx, agents) {
-        if (this.targetIndex >= agents.length) {
-            return; // Target index out of bounds
-        }
-        
-        const target = agents[this.targetIndex];
-        
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
         
-        // Draw target as gold circle
-        ctx.fillStyle = 'gold';
-        ctx.beginPath();
-        ctx.arc(target.x, target.y, radius, 0, 2 * Math.PI);
-        ctx.fill();
-        
-        // Draw white border to distinguish target
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        // Render all active targets
+        for (const target of this.targets) {
+            if (!target.active) {
+                continue; // Skip inactive (collected) targets
+            }
+            
+            // Draw target as gold circle
+            ctx.fillStyle = 'gold';
+            ctx.beginPath();
+            ctx.arc(target.x, target.y, radius, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Draw white border to distinguish target
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
     }
     
     /**
-     * Checks if hero and target are closest to each other and within 3x diameter (24 pixels)
+     * Checks if hero and any active target are closest to each other and within 3x diameter (12 pixels)
      * @param {Array} agents - Array of Agent objects
      * @param {number} canvasWidth - Canvas width (for toroidal wrapping)
      * @param {number} canvasHeight - Canvas height (for toroidal wrapping)
-     * @returns {boolean} - True if should pause (hero and target are closest and within range)
+     * @returns {boolean} - True if should pause (hero and a target are closest and within range)
      */
     checkHeroTargetProximity(agents, canvasWidth, canvasHeight) {
-        if (this.heroIndex >= agents.length || this.targetIndex >= agents.length) {
+        if (this.heroIndex >= agents.length) {
             return false;
         }
         
         const hero = agents[this.heroIndex];
-        const target = agents[this.targetIndex];
         
-        // Calculate distance with toroidal wrapping
-        let dx = target.x - hero.x;
-        let dy = target.y - hero.y;
-        
-        // Handle toroidal wrapping
-        if (Math.abs(dx) > canvasWidth / 2) {
-            dx = dx > 0 ? dx - canvasWidth : dx + canvasWidth;
+        // Check proximity with all active targets
+        for (const target of this.targets) {
+            if (!target.active) {
+                continue; // Skip inactive targets
+            }
+            
+            // Calculate distance with toroidal wrapping
+            let dx = target.x - hero.x;
+            let dy = target.y - hero.y;
+            
+            // Handle toroidal wrapping
+            if (Math.abs(dx) > canvasWidth / 2) {
+                dx = dx > 0 ? dx - canvasWidth : dx + canvasWidth;
+            }
+            if (Math.abs(dy) > canvasHeight / 2) {
+                dy = dy > 0 ? dy - canvasHeight : dy + canvasHeight;
+            }
+            
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const maxDistance = 12; // 3x diameter (3 * 4 pixels, standard agent size)
+            
+            // Check if within range
+            if (distance > maxDistance) {
+                continue; // Check next target
+            }
+            
+            // Check if hero and this target are closest to each other
+            // (no other agent is closer to hero than this target, and vice versa)
+            let heroToTargetIsClosest = true;
+            let targetToHeroIsClosest = true;
+            
+            for (let i = 0; i < agents.length; i++) {
+                if (i === this.heroIndex) {
+                    continue;
+                }
+                
+                const other = agents[i];
+                
+                // Check distance from hero to other agent
+                let dxHero = other.x - hero.x;
+                let dyHero = other.y - hero.y;
+                if (Math.abs(dxHero) > canvasWidth / 2) {
+                    dxHero = dxHero > 0 ? dxHero - canvasWidth : dxHero + canvasWidth;
+                }
+                if (Math.abs(dyHero) > canvasHeight / 2) {
+                    dyHero = dyHero > 0 ? dyHero - canvasHeight : dyHero + canvasHeight;
+                }
+                const distHeroToOther = Math.sqrt(dxHero * dxHero + dyHero * dyHero);
+                
+                // Check distance from target to other agent
+                let dxTarget = other.x - target.x;
+                let dyTarget = other.y - target.y;
+                if (Math.abs(dxTarget) > canvasWidth / 2) {
+                    dxTarget = dxTarget > 0 ? dxTarget - canvasWidth : dxTarget + canvasWidth;
+                }
+                if (Math.abs(dyTarget) > canvasHeight / 2) {
+                    dyTarget = dyTarget > 0 ? dyTarget - canvasHeight : dyTarget + canvasHeight;
+                }
+                const distTargetToOther = Math.sqrt(dxTarget * dxTarget + dyTarget * dyTarget);
+                
+                // If any other agent is closer to hero than this target, hero-to-target is not closest
+                if (distHeroToOther < distance) {
+                    heroToTargetIsClosest = false;
+                }
+                
+                // If any other agent is closer to target than hero, target-to-hero is not closest
+                if (distTargetToOther < distance) {
+                    targetToHeroIsClosest = false;
+                }
+            }
+            
+            // If this target is closest to hero and within range, pause
+            if (heroToTargetIsClosest && targetToHeroIsClosest) {
+                return true;
+            }
         }
-        if (Math.abs(dy) > canvasHeight / 2) {
-            dy = dy > 0 ? dy - canvasHeight : dy + canvasHeight;
-        }
         
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const maxDistance = 12; // 3x diameter (3 * 4 pixels, standard agent size)
-        
-        // Check if within range
-        if (distance > maxDistance) {
-            return false;
-        }
-        
-        // Check if hero and target are closest to each other
-        // (no other agent is closer to hero than target, and vice versa)
-        let heroToTargetIsClosest = true;
-        let targetToHeroIsClosest = true;
-        
-        for (let i = 0; i < agents.length; i++) {
-            if (i === this.heroIndex || i === this.targetIndex) {
-                continue;
-            }
-            
-            const other = agents[i];
-            
-            // Check distance from hero to other agent
-            let dxHero = other.x - hero.x;
-            let dyHero = other.y - hero.y;
-            if (Math.abs(dxHero) > canvasWidth / 2) {
-                dxHero = dxHero > 0 ? dxHero - canvasWidth : dxHero + canvasWidth;
-            }
-            if (Math.abs(dyHero) > canvasHeight / 2) {
-                dyHero = dyHero > 0 ? dyHero - canvasHeight : dyHero + canvasHeight;
-            }
-            const distHeroToOther = Math.sqrt(dxHero * dxHero + dyHero * dyHero);
-            
-            // Check distance from target to other agent
-            let dxTarget = other.x - target.x;
-            let dyTarget = other.y - target.y;
-            if (Math.abs(dxTarget) > canvasWidth / 2) {
-                dxTarget = dxTarget > 0 ? dxTarget - canvasWidth : dxTarget + canvasWidth;
-            }
-            if (Math.abs(dyTarget) > canvasHeight / 2) {
-                dyTarget = dyTarget > 0 ? dyTarget - canvasHeight : dyTarget + canvasHeight;
-            }
-            const distTargetToOther = Math.sqrt(dxTarget * dxTarget + dyTarget * dyTarget);
-            
-            // If any other agent is closer to hero than target, hero-to-target is not closest
-            if (distHeroToOther < distance) {
-                heroToTargetIsClosest = false;
-            }
-            
-            // If any other agent is closer to target than hero, target-to-hero is not closest
-            if (distTargetToOther < distance) {
-                targetToHeroIsClosest = false;
-            }
-        }
-        
-        // Pause if they are closest to each other and within range
-        return heroToTargetIsClosest && targetToHeroIsClosest;
+        return false;
     }
     
     /**
-     * Checks if Hero has reached Target (win condition)
-     * Win condition: distance < (Radius_H + Radius_T)
-     * Hero and Target both have radius 6 pixels, so collision distance = 12 pixels
+     * Checks if Hero has collected any targets and updates target states
+     * Win condition: all targets collected (activeTargets.length == 0)
      * @param {Array} agents - Array of Agent objects
      * @param {number} canvasWidth - Canvas width (for toroidal wrapping)
      * @param {number} canvasHeight - Canvas height (for toroidal wrapping)
-     * @returns {boolean} - True if Hero has reached Target (win condition met)
+     * @returns {boolean} - True if all targets collected (win condition met)
      */
     checkWinCondition(agents, canvasWidth, canvasHeight) {
-        if (this.heroIndex >= agents.length || this.targetIndex >= agents.length) {
+        if (this.heroIndex >= agents.length) {
             return false;
         }
         
         const hero = agents[this.heroIndex];
-        const target = agents[this.targetIndex];
-        
-        // Calculate distance with toroidal wrapping
-        let dx = target.x - hero.x;
-        let dy = target.y - hero.y;
-        
-        // Handle toroidal wrapping
-        if (Math.abs(dx) > canvasWidth / 2) {
-            dx = dx > 0 ? dx - canvasWidth : dx + canvasWidth;
-        }
-        if (Math.abs(dy) > canvasHeight / 2) {
-            dy = dy > 0 ? dy - canvasHeight : dy + canvasHeight;
-        }
-        
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        // Win condition: distance < (Radius_H + Radius_T)
-        // Hero radius = 4, Target radius = 4 (standard agent size), so collision distance = 8 pixels
         const HERO_RADIUS = 4;
         const TARGET_RADIUS = 4;
         const COLLISION_DISTANCE = HERO_RADIUS + TARGET_RADIUS;
         
-        return distance < COLLISION_DISTANCE;
+        // Check collision with all active targets
+        for (const target of this.targets) {
+            if (!target.active) {
+                continue; // Skip already collected targets
+            }
+            
+            // Calculate distance with toroidal wrapping
+            let dx = target.x - hero.x;
+            let dy = target.y - hero.y;
+            
+            // Handle toroidal wrapping
+            if (Math.abs(dx) > canvasWidth / 2) {
+                dx = dx > 0 ? dx - canvasWidth : dx + canvasWidth;
+            }
+            if (Math.abs(dy) > canvasHeight / 2) {
+                dy = dy > 0 ? dy - canvasHeight : dy + canvasHeight;
+            }
+            
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Check collision: distance < (Radius_H + Radius_T)
+            if (distance < COLLISION_DISTANCE) {
+                // Mark target as collected (inactive)
+                target.active = false;
+                console.log(`Target collected! ${this.getActiveTargetCount()} targets remaining.`);
+            }
+        }
+        
+        // Win condition: all targets collected
+        return this.getActiveTargetCount() === 0;
+    }
+    
+    /**
+     * Gets the count of active (uncollected) targets
+     * @returns {number} - Number of active targets
+     */
+    getActiveTargetCount() {
+        return this.targets.filter(t => t.active).length;
     }
     
     /**
