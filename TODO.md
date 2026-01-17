@@ -1,10 +1,17 @@
-- [x] **Feature: Demon Entity & Visuals**
-    - *Goal*: Define the Demon agent type.
-    - *State*: Add `activeDemons` list (initially empty).
-    - *Visuals*:
-        -   **Color**: **Brick Red** (`hsl(0, 60%, 40%)`). (Lower saturation as requested).
-        -   **Shape**: Same radius as Targets/Normal agents.
+- [x] **Feature: Capture & Corruption Mechanic**
+    - *Goal*: Implement the specific logic where catching a Target converts a neighbor into a Demon.
+    - *Trigger*: Hero collides with Target $T_{hit}$.
     - *Logic*:
-        -   **Channel B Binding**: Ensure Demons freeze when `Ctrl/Right-Tap` is held (same as Targets).
-        -   **Collision**: Check `distance(Hero, Demon) < HitRadius`. If true -> **Game Over**.
-    - *Verify*: Manually push a demon into the array and confirm it looks correct and kills the player.
+        1.  **Recycle Victim**:
+            -   Remove $T_{hit}$ from `activeTargets`.
+            -   Reinitialize $T_{hit}$ as a normal swarm agent (random pos/phase, 0 vel).
+        2.  **Corrupt Bystander**:
+            -   Check if `activeTargets` is not empty.
+            -   Randomly select another target $T_{next}$.
+            -   **Transfer**: Remove $T_{next}$ from `activeTargets` and push to `activeDemons`.
+            -   *Constraint*: Do NOT reset $T_{next}$'s position or phase. It changes teams instantly in place.
+    - *Cleanup*: Remove the temporary Demon spawn from the previous step.
+    - *Verify*:
+        1.  Catch a Gold Target.
+        2.  Watch it vanish (recycled).
+        3.  Watch a *different* Gold Target turn Red instantly.
