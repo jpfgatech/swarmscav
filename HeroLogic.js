@@ -349,7 +349,8 @@ export class HeroLogic {
                 GlowConfig.target.rayCount,
                 GlowConfig.target.rotationSpeed,
                 time,
-                glowRadius
+                glowRadius,
+                `target-${target.index}`
             );
         }
     }
@@ -426,7 +427,8 @@ export class HeroLogic {
                 GlowConfig.demon.rayCount,
                 GlowConfig.demon.rotationSpeed,
                 time,
-                glowRadius
+                glowRadius,
+                `demon-${demon.index}`
             );
         }
     }

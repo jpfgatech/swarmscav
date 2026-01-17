@@ -86,6 +86,22 @@ function createRays(count) {
     return rays;
 }
 
+// Cache for rays per entity (keyed by entity type and index)
+const rayCache = new Map();
+
+/**
+ * Gets or creates rays for an entity
+ * @param {string} key - Unique key for this entity (e.g., "hero-0", "target-1")
+ * @param {number} rayCount - Number of rays to create
+ * @returns {Array} Array of ray objects
+ */
+function getRays(key, rayCount) {
+    if (!rayCache.has(key)) {
+        rayCache.set(key, createRays(rayCount));
+    }
+    return rayCache.get(key);
+}
+
 /**
  * Renders volumetric god rays at the specified position
  * @param {CanvasRenderingContext2D} ctx - 2D rendering context
@@ -96,13 +112,14 @@ function createRays(count) {
  * @param {number} rotationSpeed - Base rotation speed
  * @param {number} time - Current time in seconds (for animation)
  * @param {number} maxRadius - Maximum radius of the glow (3-4x agent radius)
+ * @param {string} cacheKey - Unique key for caching rays (e.g., "hero-0")
  */
-export function renderGodRays(ctx, x, y, baseColor, rayCount, rotationSpeed, time, maxRadius) {
+export function renderGodRays(ctx, x, y, baseColor, rayCount, rotationSpeed, time, maxRadius, cacheKey) {
     // Convert base color to RGB
     const rgb = colorToRgb(baseColor);
     
-    // Create rays if not already cached (we'll create fresh each frame for simplicity)
-    const rays = createRays(rayCount);
+    // Get or create cached rays
+    const rays = getRays(cacheKey, rayCount);
     
     ctx.save();
     
