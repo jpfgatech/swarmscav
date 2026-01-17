@@ -6,15 +6,15 @@
 
 export const GlowConfig = {
     hero: {
-        rayCount: 30, // TEMPORARY: Reduced from 150
-        rotationSpeed: 0.005 // TEMPORARY: Reduced from 0.05 (another 10x slower, originally 0.5)
+        rayCount: 60, // TEMPORARY: Adjusted from 30
+        rotationSpeed: 0.025 // TEMPORARY: Adjusted from 0.005
     },
     target: {
-        rayCount: 30, // TEMPORARY: Reduced from 150
-        rotationSpeed: 0.005 // TEMPORARY: Reduced from 0.05 (another 10x slower, originally 0.5)
+        rayCount: 60, // TEMPORARY: Adjusted from 30
+        rotationSpeed: 0.025 // TEMPORARY: Adjusted from 0.005
     },
     demon: {
-        rayCount: 30, // TEMPORARY: Reduced from 150
-        rotationSpeed: 0.005 // TEMPORARY: Reduced from 0.05 (another 10x slower, originally 0.5)
+        rayCount: 60, // TEMPORARY: Adjusted from 30
+        rotationSpeed: 0.025 // TEMPORARY: Adjusted from 0.005
     }
 };
