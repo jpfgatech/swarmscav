@@ -354,11 +354,12 @@ function render(currentTime) {
         agent.updateColor();
     }
     
-    // Render glows first (before all agents) so they appear beneath
-    if (heroLogic) {
-        const currentTimeSeconds = (performance.now() - simulationStartTime) / 1000;
-        heroLogic.renderGlows(ctx, swarm, currentTimeSeconds);
-    }
+    // TEMPORARILY DISABLED: Render glows first (before all agents) so they appear beneath
+    // TODO: Re-enable glow rendering when ready
+    // if (heroLogic) {
+    //     const currentTimeSeconds = (performance.now() - simulationStartTime) / 1000;
+    //     heroLogic.renderGlows(ctx, swarm, currentTimeSeconds);
+    // }
     
     // Draw all agents (except hero, targets, and demons which are rendered separately)
     for (let i = 0; i < swarm.length; i++) {
