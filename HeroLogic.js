@@ -511,7 +511,7 @@ export class HeroLogic {
             
             // Check collision: distance < (Radius_H + Radius_T)
             if (distance < COLLISION_DISTANCE) {
-                // Mark target as collected (inactive)
+                // 1. Recycle Victim: Remove T_hit from activeTargets and recycle as normal agent
                 target.active = false;
                 
                 // Recycle the agent: respawn it as a regular "civilian" agent
@@ -524,7 +524,29 @@ export class HeroLogic {
                 targetAgent.ax = 0; // Reset acceleration
                 targetAgent.ay = 0;
                 
-                console.log(`Target collected! ${this.getActiveTargetCount()} targets remaining. Agent recycled to (${targetAgent.x.toFixed(1)}, ${targetAgent.y.toFixed(1)}).`);
+                // 2. Corrupt Bystander: Convert another target into a demon
+                const activeTargets = this.targets.filter(t => t.active);
+                if (activeTargets.length > 0) {
+                    // Randomly select another active target
+                    const randomIndex = Math.floor(Math.random() * activeTargets.length);
+                    const targetToCorrupt = activeTargets[randomIndex];
+                    
+                    // Transfer: Remove T_next from activeTargets and push to activeDemons
+                    targetToCorrupt.active = false;
+                    this.activeDemons.push({ index: targetToCorrupt.index });
+                    
+                    // Constraint: Do NOT reset position or phase - it changes teams instantly in place
+                    // The agent at targetToCorrupt.index stays where it is, just changes from gold to red
+                    
+                    // Remove from targetPrevPositions if present
+                    if (this.targetPrevPositions.has(targetToCorrupt.index)) {
+                        this.targetPrevPositions.delete(targetToCorrupt.index);
+                    }
+                    
+                    console.log(`Target collected! ${this.getActiveTargetCount()} targets remaining. Target at index ${targetToCorrupt.index} corrupted into demon!`);
+                } else {
+                    console.log(`Target collected! ${this.getActiveTargetCount()} targets remaining. Agent recycled.`);
+                }
             }
         }
         
