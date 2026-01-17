@@ -51,7 +51,7 @@ function hslToRgb(hslStr) {
 }
 
 /**
- * Draws a star shape with uneven arms and radial transparency fade
+ * Draws a star shape with uneven arms and flat transparency (no radial gradient fade)
  * @param {CanvasRenderingContext2D} ctx - 2D rendering context
  * @param {number} cx - Center X coordinate
  * @param {number} cy - Center Y coordinate
@@ -60,7 +60,7 @@ function hslToRgb(hslStr) {
  * @param {number} innerRadius - Inner radius of the star
  * @param {number} rotation - Rotation angle in radians
  * @param {number} noiseAmount - Amount of variation for uneven arms (0-1)
- * @param {number} baseAlpha - Base alpha value for the gradient (0-1)
+ * @param {number} baseAlpha - Base alpha value (flat transparency, no gradient fade)
  * @param {string} colorStr - Color string (HSL or RGB) for the star
  */
 function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, rotation, noiseAmount = 0.3, baseAlpha = 1.0, colorStr = 'white') {
@@ -98,14 +98,8 @@ function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, rotation, noise
         }
     }
 
-    // Create radial gradient for transparency fade from center to edge
-    // Each arm gets increasingly transparent with radius
-    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxRadius);
-    gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${baseAlpha})`); // Full alpha at center
-    gradient.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, ${baseAlpha * 0.8})`); // Slight fade
-    gradient.addColorStop(0.6, `rgba(${r}, ${g}, ${b}, ${baseAlpha * 0.4})`); // Medium fade
-    gradient.addColorStop(0.85, `rgba(${r}, ${g}, ${b}, ${baseAlpha * 0.15})`); // Heavy fade
-    gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`); // Fully transparent at edge
+    // Flat transparency - no radial gradient fade
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${baseAlpha})`;
 
     ctx.beginPath();
     
@@ -127,8 +121,7 @@ function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, rotation, noise
     }
     ctx.closePath();
     
-    // Fill with radial gradient for transparency fade
-    ctx.fillStyle = gradient;
+    // Fill with flat transparency (no gradient fade)
     ctx.fill();
 }
 
@@ -151,21 +144,11 @@ export function renderGodRayBurst(ctx, x, y, heroColor, time) {
     // Use lighter blending for atmospheric glow (but keep transparency/shady)
     ctx.globalCompositeOperation = 'lighter';
     
-    // Layer 1 (Core): Soft radial gradient - very subtle (shady, don't cover background)
-    ctx.globalAlpha = 0.15; // Very transparent to keep dark background visible
-    const centerGradient = ctx.createRadialGradient(x, y, 0, x, y, maxRadius * 0.4);
-    centerGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
-    centerGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
-    centerGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    // Layer 1 (Core): REMOVED temporarily to see glow effect
     
-    ctx.fillStyle = centerGradient;
-    ctx.beginPath();
-    ctx.arc(x, y, maxRadius * 0.4, 0, 2 * Math.PI);
-    ctx.fill();
-    
-    // Layer 2 (Slow Flow): 12-point irregular star - hero color, slow CW rotation
-    // Arms are uneven (noise variation) and fade with radius (increasingly transparent from center to edge)
-    ctx.globalAlpha = 1.0; // Gradient will handle alpha fade
+    // Layer 2 (Slow Flow): Fewer arms (6-point), irregular star - hero color, slow CW rotation
+    // Arms are uneven (noise variation), much more transparent (flat alpha)
+    ctx.globalAlpha = 1.0; // Will use flat alpha in fillStyle
     ctx.translate(x, y);
     const layer2Rotation = time * 0.2; // Slow clockwise rotation
     const layer2Scale = 1.0 + Math.sin(time) * 0.1; // Slight pulse
@@ -173,12 +156,12 @@ export function renderGodRayBurst(ctx, x, y, heroColor, time) {
     ctx.rotate(layer2Rotation);
     const layer2OuterRadius = maxRadius * 0.9;
     const layer2InnerRadius = maxRadius * 0.4; // Irregular/narrow points
-    drawStar(ctx, 0, 0, 12, layer2OuterRadius, layer2InnerRadius, layer2Rotation, 0.25, 0.4, heroColor);
+    drawStar(ctx, 0, 0, 6, layer2OuterRadius, layer2InnerRadius, layer2Rotation, 0.25, 0.08, heroColor); // Much more transparent
     ctx.resetTransform();
     
-    // Layer 3 (Fast Jitter): 8-point sharp star - white, fast CCW rotation
-    // Creates interference pattern with Layer 2, arms are uneven and fade with radius
-    ctx.globalAlpha = 1.0; // Gradient will handle alpha fade
+    // Layer 3 (Fast Jitter): Fewer arms (6-point), sharp star - white, fast CCW rotation
+    // Creates interference pattern with Layer 2, arms are uneven, much more transparent
+    ctx.globalAlpha = 1.0; // Will use flat alpha in fillStyle
     ctx.translate(x, y);
     const layer3Rotation = time * -0.5; // Fast counter-clockwise rotation
     const layer3Scale = 0.7;
@@ -186,7 +169,7 @@ export function renderGodRayBurst(ctx, x, y, heroColor, time) {
     ctx.rotate(layer3Rotation);
     const layer3OuterRadius = maxRadius * 0.8;
     const layer3InnerRadius = maxRadius * 0.3; // Sharp points
-    drawStar(ctx, 0, 0, 8, layer3OuterRadius, layer3InnerRadius, layer3Rotation, 0.2, 0.3, 'white');
+    drawStar(ctx, 0, 0, 6, layer3OuterRadius, layer3InnerRadius, layer3Rotation, 0.2, 0.06, 'white'); // Much more transparent
     ctx.resetTransform();
     
     ctx.restore();
