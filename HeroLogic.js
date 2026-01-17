@@ -285,11 +285,11 @@ export class HeroLogic {
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
         
-        // Draw hero with fuzzy boundary (radial gradient fade-out)
+        // Draw hero with fuzzy boundary (radial gradient fade-out, solid core)
         const gradient = ctx.createRadialGradient(hero.x, hero.y, 0, hero.x, hero.y, radius);
         gradient.addColorStop(0, 'rgb(0, 255, 255)'); // Bright cyan at center
-        gradient.addColorStop(0.7, 'rgba(0, 255, 255, 0.8)'); // Slight fade
-        gradient.addColorStop(1, 'rgba(0, 255, 255, 0)'); // Fade to transparent at edge
+        gradient.addColorStop(0.95, 'rgb(0, 255, 255)'); // Keep solid almost to edge
+        gradient.addColorStop(1, 'rgba(0, 255, 255, 0)'); // Fade to transparent only at very edge
         
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -399,11 +399,11 @@ export class HeroLogic {
             
             const targetAgent = agents[target.index];
             
-            // Draw target with fuzzy boundary (radial gradient fade-out)
+            // Draw target with fuzzy boundary (radial gradient fade-out, solid core)
             const gradient = ctx.createRadialGradient(targetAgent.x, targetAgent.y, 0, targetAgent.x, targetAgent.y, radius);
             gradient.addColorStop(0, 'gold'); // Gold at center
-            gradient.addColorStop(0.7, 'rgba(255, 215, 0, 0.8)'); // Slight fade
-            gradient.addColorStop(1, 'rgba(255, 215, 0, 0)'); // Fade to transparent at edge
+            gradient.addColorStop(0.95, 'gold'); // Keep solid almost to edge
+            gradient.addColorStop(1, 'rgba(255, 215, 0, 0)'); // Fade to transparent only at very edge
             
             ctx.fillStyle = gradient;
             ctx.beginPath();
@@ -468,8 +468,8 @@ export class HeroLogic {
             
             const gradient = ctx.createRadialGradient(demonAgent.x, demonAgent.y, 0, demonAgent.x, demonAgent.y, radius);
             gradient.addColorStop(0, demonColor); // Brick red at center
-            gradient.addColorStop(0.7, `rgba(${demonRgb.r}, ${demonRgb.g}, ${demonRgb.b}, 0.8)`); // Slight fade
-            gradient.addColorStop(1, `rgba(${demonRgb.r}, ${demonRgb.g}, ${demonRgb.b}, 0)`); // Fade to transparent at edge
+            gradient.addColorStop(0.95, demonColor); // Keep solid almost to edge
+            gradient.addColorStop(1, `rgba(${demonRgb.r}, ${demonRgb.g}, ${demonRgb.b}, 0)`); // Fade to transparent only at very edge
             
             ctx.fillStyle = gradient;
             ctx.beginPath();

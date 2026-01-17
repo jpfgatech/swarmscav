@@ -112,10 +112,10 @@ function initialize() {
     console.log(`Initialized ${swarm.length} agents (centered)`);
     
     // Initialize hero logic (hero is agent at index 0)
-    // Targets are agents at indices 1-10 (included in swarm count)
-    if (swarm.length >= 11) {
-        // Hero at index 0, targets at indices 1-10
-        heroLogic = new HeroLogic(0, swarm[0], swarm.slice(1, 11));
+    // Targets are agents at indices 1-7 (7 targets, included in swarm count)
+    if (swarm.length >= 8) {
+        // Hero at index 0, targets at indices 1-7
+        heroLogic = new HeroLogic(0, swarm[0], swarm.slice(1, 8));
     } else {
         // Fallback: if not enough agents, just initialize with hero
         heroLogic = new HeroLogic(0, swarm[0], []);
@@ -415,18 +415,20 @@ function getGameMode() {
 }
 
 // Preset configurations for Player Mode
+// Reordered: start with preset 3/4/2 then 1 (indices: 3, 2, 1, 0)
 const PRESET_CONFIGS = [
-    { J: 2.0, K: -1.0 },  // Preset 1: matches default config (restored from commit 7dc61c9)
-    { J: 2.5, K: -0.16, TIME_SCALE: 250 },
-    { J: 8.0, K: -8.0 },
-    { J: 8.0, K: -4.0, TIME_SCALE: 50 }
+    { J: 8.0, K: -4.0, TIME_SCALE: 50 },  // Preset 3 -> index 0
+    { J: 8.0, K: -8.0 },                  // Preset 2 -> index 1
+    { J: 2.5, K: -0.16, TIME_SCALE: 250 }, // Preset 1 -> index 2
+    { J: 2.0, K: -1.0 }                   // Preset 0 -> index 3 (matches default config)
 ];
 
-// Apply a random preset configuration
+// Apply preset configuration for player mode (always starts with first preset)
 // Returns the preset index that was applied
 // NOTE: Only modifies J, K, and optionally TIME_SCALE. All other parameters remain as initialized.
-function applyRandomPreset() {
-    const presetIndex = Math.floor(Math.random() * PRESET_CONFIGS.length);
+function applyPlayerPreset() {
+    // Always start with preset index 0 (which is now preset 3 after reordering)
+    const presetIndex = 0;
     const preset = PRESET_CONFIGS[presetIndex];
     console.log('Player Mode: Applying preset', presetIndex, preset);
     
@@ -452,15 +454,15 @@ try {
     const gameMode = getGameMode();
     const isDevMode = gameMode === 'dev';
     
-    // Apply random preset if in player mode
+    // Apply preset if in player mode (always starts with first preset)
     let currentPresetIndex = null;
     if (!isDevMode) {
-        currentPresetIndex = applyRandomPreset();
+        currentPresetIndex = applyPlayerPreset();
     }
     
     initialize();
     
-    // Initialize ParameterPanel (shown in both modes, but different UI)
+    // Initialize ParameterPanel (shown only in dev mode)
     let parameterPanel = null;
     if (isDevMode) {
         parameterPanel = new ParameterPanel(
@@ -485,28 +487,8 @@ try {
         // Initialize panel with current config values
         parameterPanel.updateFromConfig(RuntimeConfig);
     } else {
-        // Player mode: create panel with preset index display
-        parameterPanel = new ParameterPanel(
-            (key, value) => {
-                // Config updater callback
-                updateRuntimeConfig(key, value);
-            },
-            (show) => {
-                // Energy curve toggle callback
-                showEnergyCurve = show;
-            },
-            (maxStamina) => {
-                // Max stamina callback
-                if (heroLogic) {
-                    heroLogic.setMaxStamina(maxStamina);
-                }
-            },
-            false, // isDevMode = false
-            currentPresetIndex // presetIndex for display
-        );
-        
-        // Initialize panel with current config values
-        parameterPanel.updateFromConfig(RuntimeConfig);
+        // Player mode: panel is hidden (not created)
+        // No panel in player mode
     }
     
     // Dual-channel input system
