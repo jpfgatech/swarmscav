@@ -3,6 +3,13 @@ import { EnergyMonitor } from './EnergyMonitor.js';
 import { HeroLogic } from './HeroLogic.js';
 import {
     N,
+    J as DEFAULT_J,
+    K as DEFAULT_K,
+    BASE_OMEGA as DEFAULT_BASE_OMEGA,
+    OMEGA_VARIATION as DEFAULT_OMEGA_VARIATION,
+    TIME_SCALE as DEFAULT_TIME_SCALE,
+    EPSILON as DEFAULT_EPSILON,
+    REPULSION_STRENGTH as DEFAULT_REPULSION_STRENGTH,
     ENERGY_THRESHOLD_PER_AGENT,
     ENERGY_KILL_FRAMES,
     ENABLE_AUTO_KILL
@@ -396,11 +403,24 @@ const PRESET_CONFIGS = [
 
 // Apply a random preset configuration
 // Returns the preset index that was applied
+// NOTE: This resets ALL parameters to defaults first, then applies only the preset-specific overrides
 function applyRandomPreset() {
     const presetIndex = Math.floor(Math.random() * PRESET_CONFIGS.length);
     const preset = PRESET_CONFIGS[presetIndex];
     console.log('Player Mode: Applying preset', presetIndex, preset);
     
+    // First, reset ALL RuntimeConfig values to their defaults (ignoring URL parameters)
+    // These are the true defaults from config.js, not affected by URL parameters or previous runs
+    // This ensures parameters not specified in the preset remain at default values
+    RuntimeConfig.J = DEFAULT_J; // From config.js (default: 1.2)
+    RuntimeConfig.K = DEFAULT_K; // From config.js (default: 0.00)
+    RuntimeConfig.BASE_OMEGA = DEFAULT_BASE_OMEGA; // From config.js (default: 0.02)
+    RuntimeConfig.OMEGA_VARIATION = DEFAULT_OMEGA_VARIATION; // From config.js (default: 0.02)
+    RuntimeConfig.TIME_SCALE = DEFAULT_TIME_SCALE; // From config.js (default: 100.0)
+    RuntimeConfig.EPSILON = DEFAULT_EPSILON; // From config.js (default: 4.0)
+    RuntimeConfig.REPULSION_STRENGTH = DEFAULT_REPULSION_STRENGTH; // From config.js (default: 4000.0)
+    
+    // Then apply only the preset-specific overrides
     if (preset.J !== undefined) {
         RuntimeConfig.J = preset.J;
     }
