@@ -480,7 +480,7 @@ export class HeroLogic {
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(demonAgent.x, demonAgent.y, radius, 0, 2 * Math.PI);
-            ctx.stroke();
+            ctx.fill();
             
             // Draw white border to distinguish demon
             ctx.strokeStyle = '#fff';
