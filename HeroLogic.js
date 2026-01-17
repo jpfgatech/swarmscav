@@ -283,9 +283,9 @@ export class HeroLogic {
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
         
-        // Draw hero with phase-based color (like regular agents)
-        // Use agent's color property which is updated based on phase
-        ctx.fillStyle = hero.color;
+        // Draw hero with special color (temporarily for visibility without white border)
+        // Use bright cyan to make hero recognizable
+        ctx.fillStyle = 'rgb(0, 255, 255)'; // Bright cyan
         ctx.beginPath();
         ctx.arc(hero.x, hero.y, radius, 0, 2 * Math.PI);
         ctx.fill();
