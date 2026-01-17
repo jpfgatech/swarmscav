@@ -489,9 +489,16 @@ try {
         parameterPanel.updateFromConfig(RuntimeConfig);
     }
     
-    // Add keyboard input handler for Space key (hero anchor activation)
+    // Dual-channel input system
+    // Channel A (Hero): Spacebar (Web) / Left-Side Tap (Mobile)
+    // Channel B (Targets): Ctrl Key (Web) / Right-Side Tap (Mobile)
+    
     let spaceKeyPressed = false;
+    let ctrlKeyPressed = false;
+    
+    // Keyboard input handlers
     document.addEventListener('keydown', (e) => {
+        // Channel A: Spacebar
         if (e.code === 'Space' && !spaceKeyPressed) {
             e.preventDefault();
             spaceKeyPressed = true;
@@ -502,39 +509,96 @@ try {
                     const hero = swarm[heroIndex];
                     heroLogic.setPrevPos(hero.x, hero.y);
                 }
-                heroLogic.setInputActive(true);
+                heroLogic.setChannelAActive(true);
+            }
+        }
+        
+        // Channel B: Ctrl key (either left or right Ctrl)
+        if ((e.code === 'ControlLeft' || e.code === 'ControlRight') && !ctrlKeyPressed) {
+            e.preventDefault();
+            ctrlKeyPressed = true;
+            if (heroLogic) {
+                // Store current positions for all active targets
+                for (const target of heroLogic.targets) {
+                    if (!target.active || target.index >= swarm.length) {
+                        continue;
+                    }
+                    const targetAgent = swarm[target.index];
+                    heroLogic.setPrevPos(targetAgent.x, targetAgent.y); // Store for first target (will be handled in update)
+                }
+                heroLogic.setChannelBActive(true);
             }
         }
     });
     
     document.addEventListener('keyup', (e) => {
+        // Channel A: Spacebar
         if (e.code === 'Space') {
             e.preventDefault();
             spaceKeyPressed = false;
             if (heroLogic) {
-                heroLogic.setInputActive(false);
+                heroLogic.setChannelAActive(false);
+            }
+        }
+        
+        // Channel B: Ctrl key
+        if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
+            e.preventDefault();
+            ctrlKeyPressed = false;
+            if (heroLogic) {
+                heroLogic.setChannelBActive(false);
             }
         }
     });
     
-    // Add touch support for mobile (anchor activation)
+    // Touch support for mobile (left-side tap = Channel A, right-side tap = Channel B)
     canvas.addEventListener('touchstart', (e) => {
         e.preventDefault();
-        if (heroLogic && swarm.length > 0) {
-            // Store current position as anchor point
-            const heroIndex = heroLogic.getHeroIndex();
-            if (heroIndex < swarm.length) {
-                const hero = swarm[heroIndex];
-                heroLogic.setPrevPos(hero.x, hero.y);
+        if (heroLogic && swarm.length > 0 && e.touches.length > 0) {
+            // Get touch position relative to canvas
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const touchX = touch.clientX - rect.left;
+            const canvasWidth = canvas.width;
+            
+            // Determine which side was touched (left half = Channel A, right half = Channel B)
+            if (touchX < canvasWidth / 2) {
+                // Left side: Channel A (Hero)
+                const heroIndex = heroLogic.getHeroIndex();
+                if (heroIndex < swarm.length) {
+                    const hero = swarm[heroIndex];
+                    heroLogic.setPrevPos(hero.x, hero.y);
+                }
+                heroLogic.setChannelAActive(true);
+            } else {
+                // Right side: Channel B (Targets)
+                for (const target of heroLogic.targets) {
+                    if (!target.active || target.index >= swarm.length) {
+                        continue;
+                    }
+                    const targetAgent = swarm[target.index];
+                    heroLogic.setPrevPos(targetAgent.x, targetAgent.y); // Store for first target
+                }
+                heroLogic.setChannelBActive(true);
             }
-            heroLogic.setInputActive(true);
         }
     });
     
     canvas.addEventListener('touchend', (e) => {
         e.preventDefault();
         if (heroLogic) {
-            heroLogic.setInputActive(false);
+            // Reset both channels on touch end (simple behavior for mobile)
+            heroLogic.setChannelAActive(false);
+            heroLogic.setChannelBActive(false);
+        }
+    });
+    
+    canvas.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        if (heroLogic) {
+            // Reset both channels on touch cancel
+            heroLogic.setChannelAActive(false);
+            heroLogic.setChannelBActive(false);
         }
     });
     

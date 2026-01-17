@@ -16,17 +16,25 @@ export class HeroLogic {
     constructor(heroIndex = 0, initialAgent = null, targetAgents = []) {
         this.heroIndex = heroIndex; // Index of the hero agent
         this.prevPos = { x: 0, y: 0 }; // Previous position (locked position when anchored)
-        this.isInputActive = false; // Whether input (Space/Touch) is currently active (anchor)
+        
+        // Dual-channel input system
+        // Channel A (Hero): Spacebar (Web) / Left-Side Tap (Mobile)
+        // Channel B (Targets): Ctrl Key (Web) / Right-Side Tap (Mobile)
+        this.isChannelAActive = false; // Whether Channel A (Hero) is active
+        this.isChannelBActive = false; // Whether Channel B (Targets) is active
         
         // Multi-target scavenger hunt: track target agent indices {index, active}
         // Targets are agents in the swarm that move with physics
         this.targets = [];
         this.initializeTargets(targetAgents);
         
-        // Stamina system
+        // Shared stamina system (common resource for both channels)
         this.maxStamina = 2.0; // Maximum stamina in seconds
         this.currentStamina = 2.0; // Current stamina (initially full)
         this.isExhausted = false; // Whether stamina is depleted
+        
+        // Store previous positions for targets (for Channel B freeze)
+        this.targetPrevPositions = new Map();
         
         // Initialize previous position if provided
         if (initialAgent) {
@@ -51,11 +59,27 @@ export class HeroLogic {
     }
     
     /**
-     * Sets the input state (Space key or touch) - activates anchor
-     * @param {boolean} active - Whether input is active (anchor active)
+     * Sets Channel A state (Hero anchor) - Spacebar / Left-side touch
+     * @param {boolean} active - Whether Channel A is active
+     */
+    setChannelAActive(active) {
+        this.isChannelAActive = active;
+    }
+    
+    /**
+     * Sets Channel B state (Target freeze) - Ctrl key / Right-side touch
+     * @param {boolean} active - Whether Channel B is active
+     */
+    setChannelBActive(active) {
+        this.isChannelBActive = active;
+    }
+    
+    /**
+     * Legacy method for backward compatibility (maps to Channel A)
+     * @param {boolean} active - Whether input is active
      */
     setInputActive(active) {
-        this.isInputActive = active;
+        this.setChannelAActive(active);
     }
     
     /**
@@ -71,7 +95,7 @@ export class HeroLogic {
     }
     
     /**
-     * Updates hero position with anchor mechanic and stamina system
+     * Updates hero and target positions with dual-channel anchor mechanic and shared stamina system
      * This should be called AFTER physics update (agent.update())
      * @param {Array} agents - Array of Agent objects
      * @param {number} deltaTime - Time step
@@ -85,35 +109,88 @@ export class HeroLogic {
         
         const hero = agents[this.heroIndex];
         
-        // Stamina system update
-        if (this.isInputActive) {
+        // Shared stamina system: drain if either channel is active (at 1x rate)
+        const anyChannelActive = this.isChannelAActive || this.isChannelBActive;
+        
+        if (anyChannelActive) {
             if (!this.isExhausted) {
-                // Consumption: Input active AND not exhausted
-                // Consume stamina and apply halt physics
+                // Consumption: Any channel active AND not exhausted
+                // Consume stamina at 1x rate (holding both doesn't drain faster)
                 this.currentStamina -= deltaTime;
                 if (this.currentStamina <= 0) {
                     this.currentStamina = 0;
                     this.isExhausted = true;
                 }
                 
-                // Apply halt physics (only if not exhausted)
-                hero.x = this.prevPos.x;
-                hero.y = this.prevPos.y;
-                hero.vx = 0;
-                hero.vy = 0;
+                // Apply halt physics based on active channels (only if not exhausted)
+                
+                // Channel A: Freeze Hero
+                if (this.isChannelAActive) {
+                    hero.x = this.prevPos.x;
+                    hero.y = this.prevPos.y;
+                    hero.vx = 0;
+                    hero.vy = 0;
+                } else {
+                    // Update previous position for next frame
+                    this.prevPos = { x: hero.x, y: hero.y };
+                }
+                
+                // Channel B: Freeze all active targets
+                if (this.isChannelBActive) {
+                    for (const target of this.targets) {
+                        if (!target.active) {
+                            continue; // Skip inactive targets
+                        }
+                        
+                        if (target.index >= agents.length) {
+                            continue;
+                        }
+                        
+                        const targetAgent = agents[target.index];
+                        
+                        // Store previous position if not already stored
+                        if (!this.targetPrevPositions.has(target.index)) {
+                            this.targetPrevPositions.set(target.index, { x: targetAgent.x, y: targetAgent.y });
+                        }
+                        
+                        const prevPos = this.targetPrevPositions.get(target.index);
+                        targetAgent.x = prevPos.x;
+                        targetAgent.y = prevPos.y;
+                        targetAgent.vx = 0;
+                        targetAgent.vy = 0;
+                    }
+                } else {
+                    // Update previous positions for targets
+                    for (const target of this.targets) {
+                        if (!target.active || target.index >= agents.length) {
+                            continue;
+                        }
+                        const targetAgent = agents[target.index];
+                        this.targetPrevPositions.set(target.index, { x: targetAgent.x, y: targetAgent.y });
+                    }
+                }
             } else {
-                // Input active but exhausted - regenerate stamina (input ignored)
+                // Any channel active but exhausted - regenerate stamina (input ignored)
                 this.currentStamina += deltaTime;
                 if (this.currentStamina >= this.maxStamina) {
                     this.currentStamina = this.maxStamina;
                     this.isExhausted = false;
                 }
                 
-                // Allow PhysicsEngine to update Hero position normally (input ignored)
+                // Allow PhysicsEngine to update positions normally (input ignored)
                 this.prevPos = { x: hero.x, y: hero.y };
+                
+                // Update previous positions for targets
+                for (const target of this.targets) {
+                    if (!target.active || target.index >= agents.length) {
+                        continue;
+                    }
+                    const targetAgent = agents[target.index];
+                    this.targetPrevPositions.set(target.index, { x: targetAgent.x, y: targetAgent.y });
+                }
             }
         } else {
-            // Recovery: Input inactive
+            // Recovery: Both channels inactive
             // Regenerate stamina
             this.currentStamina += deltaTime;
             if (this.currentStamina >= this.maxStamina) {
@@ -122,8 +199,16 @@ export class HeroLogic {
             }
             
             // Allow PhysicsEngine to update Hero position normally
-            // Update previous position for next frame (for anchor lock)
             this.prevPos = { x: hero.x, y: hero.y };
+            
+            // Update previous positions for targets
+            for (const target of this.targets) {
+                if (!target.active || target.index >= agents.length) {
+                    continue;
+                }
+                const targetAgent = agents[target.index];
+                this.targetPrevPositions.set(target.index, { x: targetAgent.x, y: targetAgent.y });
+            }
         }
     }
     
