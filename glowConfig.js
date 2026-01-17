@@ -7,14 +7,14 @@
 export const GlowConfig = {
     hero: {
         rayCount: 150,
-        rotationSpeed: 0.5
+        rotationSpeed: 0.05 // TEMPORARY: Reduced from 0.5 (10x slower)
     },
     target: {
         rayCount: 150,
-        rotationSpeed: 0.5
+        rotationSpeed: 0.05 // TEMPORARY: Reduced from 0.5 (10x slower)
     },
     demon: {
         rayCount: 150,
-        rotationSpeed: 0.5
+        rotationSpeed: 0.05 // TEMPORARY: Reduced from 0.5 (10x slower)
     }
 };

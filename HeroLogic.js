@@ -284,7 +284,7 @@ export class HeroLogic {
         
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
-        const glowRadius = radius * 3.5; // 3-4x agent radius (14px)
+        const glowRadius = radius * 3.5 * 5; // TEMPORARY: Expanded by 5x (was 14px, now 70px)
         
         // Draw hero with fuzzy boundary (radial gradient fade-out)
         const gradient = ctx.createRadialGradient(hero.x, hero.y, 0, hero.x, hero.y, radius);
@@ -331,7 +331,7 @@ export class HeroLogic {
     renderTarget(ctx, agents, time) {
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
-        const glowRadius = radius * 3.5; // 3-4x agent radius (14px)
+        const glowRadius = radius * 3.5 * 5; // TEMPORARY: Expanded by 5x (was 14px, now 70px)
         
         // Render all active targets (targets are agents in the swarm)
         for (const target of this.targets) {
@@ -381,7 +381,7 @@ export class HeroLogic {
     renderDemons(ctx, agents, time) {
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
-        const glowRadius = radius * 3.5; // 3-4x agent radius (14px)
+        const glowRadius = radius * 3.5 * 5; // TEMPORARY: Expanded by 5x (was 14px, now 70px)
         
         // Brick red color: hsl(0, 60%, 40%)
         const demonColor = 'hsl(0, 60%, 40%)';
