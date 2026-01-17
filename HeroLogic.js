@@ -340,7 +340,18 @@ export class HeroLogic {
             if (distance < COLLISION_DISTANCE) {
                 // Mark target as collected (inactive)
                 target.active = false;
-                console.log(`Target collected! ${this.getActiveTargetCount()} targets remaining.`);
+                
+                // Recycle the agent: respawn it as a regular "civilian" agent
+                // Move to random position, randomize phase, reset velocity
+                targetAgent.x = Math.random() * canvasWidth;
+                targetAgent.y = Math.random() * canvasHeight;
+                targetAgent.theta = Math.random() * 2 * Math.PI; // Randomize phase
+                targetAgent.vx = 0; // Reset velocity
+                targetAgent.vy = 0;
+                targetAgent.ax = 0; // Reset acceleration
+                targetAgent.ay = 0;
+                
+                console.log(`Target collected! ${this.getActiveTargetCount()} targets remaining. Agent recycled to (${targetAgent.x.toFixed(1)}, ${targetAgent.y.toFixed(1)}).`);
             }
         }
         
