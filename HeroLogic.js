@@ -13,14 +13,15 @@
  */
 
 export class HeroLogic {
-    constructor(heroIndex = 0, initialAgent = null, canvasWidth = 800, canvasHeight = 600) {
+    constructor(heroIndex = 0, initialAgent = null, targetAgents = []) {
         this.heroIndex = heroIndex; // Index of the hero agent
         this.prevPos = { x: 0, y: 0 }; // Previous position (locked position when anchored)
         this.isInputActive = false; // Whether input (Space/Touch) is currently active (anchor)
         
-        // Multi-target scavenger hunt: array of 10 target objects {x, y, active}
+        // Multi-target scavenger hunt: track target agent indices {index, active}
+        // Targets are agents in the swarm that move with physics
         this.targets = [];
-        this.initializeTargets(canvasWidth, canvasHeight);
+        this.initializeTargets(targetAgents);
         
         // Stamina system
         this.maxStamina = 2.0; // Maximum stamina in seconds
@@ -34,16 +35,16 @@ export class HeroLogic {
     }
     
     /**
-     * Initializes 10 targets randomly within canvas bounds
-     * @param {number} canvasWidth - Canvas width
-     * @param {number} canvasHeight - Canvas height
+     * Initializes 10 target agents (targets are agents in the swarm)
+     * @param {Array} targetAgents - Array of 10 target Agent objects from swarm
      */
-    initializeTargets(canvasWidth, canvasHeight) {
+    initializeTargets(targetAgents) {
         this.targets = [];
-        for (let i = 0; i < 10; i++) {
+        // Track target agent indices, starting from heroIndex + 1
+        const startIndex = this.heroIndex + 1;
+        for (let i = 0; i < Math.min(10, targetAgents.length); i++) {
             this.targets.push({
-                x: Math.random() * canvasWidth,
-                y: Math.random() * canvasHeight,
+                index: startIndex + i, // Agent index in swarm
                 active: true
             });
         }
@@ -157,22 +158,29 @@ export class HeroLogic {
     /**
      * Renders all active targets with special styling (gold, standard agent size)
      * @param {CanvasRenderingContext2D} ctx - 2D rendering context
-     * @param {Array} agents - Array of Agent objects (not used, kept for compatibility)
+     * @param {Array} agents - Array of Agent objects (includes target agents)
      */
     renderTarget(ctx, agents) {
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
         
-        // Render all active targets
+        // Render all active targets (targets are agents in the swarm)
         for (const target of this.targets) {
             if (!target.active) {
                 continue; // Skip inactive (collected) targets
             }
             
+            // Check if target agent index is valid
+            if (target.index >= agents.length) {
+                continue;
+            }
+            
+            const targetAgent = agents[target.index];
+            
             // Draw target as gold circle
             ctx.fillStyle = 'gold';
             ctx.beginPath();
-            ctx.arc(target.x, target.y, radius, 0, 2 * Math.PI);
+            ctx.arc(targetAgent.x, targetAgent.y, radius, 0, 2 * Math.PI);
             ctx.fill();
             
             // Draw white border to distinguish target
@@ -196,15 +204,22 @@ export class HeroLogic {
         
         const hero = agents[this.heroIndex];
         
-        // Check proximity with all active targets
+        // Check proximity with all active targets (targets are agents in the swarm)
         for (const target of this.targets) {
             if (!target.active) {
                 continue; // Skip inactive targets
             }
             
+            // Check if target agent index is valid
+            if (target.index >= agents.length) {
+                continue;
+            }
+            
+            const targetAgent = agents[target.index];
+            
             // Calculate distance with toroidal wrapping
-            let dx = target.x - hero.x;
-            let dy = target.y - hero.y;
+            let dx = targetAgent.x - hero.x;
+            let dy = targetAgent.y - hero.y;
             
             // Handle toroidal wrapping
             if (Math.abs(dx) > canvasWidth / 2) {
@@ -246,8 +261,8 @@ export class HeroLogic {
                 const distHeroToOther = Math.sqrt(dxHero * dxHero + dyHero * dyHero);
                 
                 // Check distance from target to other agent
-                let dxTarget = other.x - target.x;
-                let dyTarget = other.y - target.y;
+                let dxTarget = other.x - targetAgent.x;
+                let dyTarget = other.y - targetAgent.y;
                 if (Math.abs(dxTarget) > canvasWidth / 2) {
                     dxTarget = dxTarget > 0 ? dxTarget - canvasWidth : dxTarget + canvasWidth;
                 }
@@ -279,7 +294,7 @@ export class HeroLogic {
     /**
      * Checks if Hero has collected any targets and updates target states
      * Win condition: all targets collected (activeTargets.length == 0)
-     * @param {Array} agents - Array of Agent objects
+     * @param {Array} agents - Array of Agent objects (includes target agents)
      * @param {number} canvasWidth - Canvas width (for toroidal wrapping)
      * @param {number} canvasHeight - Canvas height (for toroidal wrapping)
      * @returns {boolean} - True if all targets collected (win condition met)
@@ -294,15 +309,22 @@ export class HeroLogic {
         const TARGET_RADIUS = 4;
         const COLLISION_DISTANCE = HERO_RADIUS + TARGET_RADIUS;
         
-        // Check collision with all active targets
+        // Check collision with all active targets (targets are agents in the swarm)
         for (const target of this.targets) {
             if (!target.active) {
                 continue; // Skip already collected targets
             }
             
+            // Check if target agent index is valid
+            if (target.index >= agents.length) {
+                continue;
+            }
+            
+            const targetAgent = agents[target.index];
+            
             // Calculate distance with toroidal wrapping
-            let dx = target.x - hero.x;
-            let dy = target.y - hero.y;
+            let dx = targetAgent.x - hero.x;
+            let dy = targetAgent.y - hero.y;
             
             // Handle toroidal wrapping
             if (Math.abs(dx) > canvasWidth / 2) {

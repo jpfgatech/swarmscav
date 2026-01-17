@@ -65,7 +65,8 @@ function initialize() {
     // Use RuntimeConfig.N to support URL parameter overrides (batch mode)
     const currentN = RuntimeConfig.N;
     
-    // Create agents
+    // Create agents (hero + targets + regular agents)
+    // Hero is at index 0, targets are at indices 1-10
     for (let i = 0; i < currentN; i++) {
         swarm.push(new Agent(canvas.width, canvas.height, RuntimeConfig.BASE_OMEGA, RuntimeConfig.OMEGA_VARIATION));
     }
@@ -111,9 +112,13 @@ function initialize() {
     console.log(`Initialized ${swarm.length} agents (centered)`);
     
     // Initialize hero logic (hero is agent at index 0)
-    // Targets are now separate objects (not agents), initialized in HeroLogic constructor
-    if (swarm.length > 0) {
-        heroLogic = new HeroLogic(0, swarm[0], canvas.width, canvas.height);
+    // Targets are agents at indices 1-10 (included in swarm count)
+    if (swarm.length >= 11) {
+        // Hero at index 0, targets at indices 1-10
+        heroLogic = new HeroLogic(0, swarm[0], swarm.slice(1, 11));
+    } else {
+        // Fallback: if not enough agents, just initialize with hero
+        heroLogic = new HeroLogic(0, swarm[0], []);
     }
 }
 
@@ -266,17 +271,14 @@ function updatePhysics(deltaTime, realDeltaTime) {
         heroLogic.update(swarm, realDeltaTime, canvas.width, canvas.height);
         
         // Check win condition: Hero collects all targets
+        // Only pause when ALL targets are collected (game won)
+        // Individual target collection does not pause the game
         if (heroLogic.checkWinCondition(swarm, canvas.width, canvas.height)) {
             window.SIMULATION_PAUSED = true;
             window.GAME_STATE = 'WON';
             console.log('Game won: All targets collected!');
-        } else {
-            // Check if hero and any target are closest and within 3x diameter (pause condition)
-            if (heroLogic.checkHeroTargetProximity(swarm, canvas.width, canvas.height)) {
-                window.SIMULATION_PAUSED = true;
-                console.log('Simulation paused: Hero and Target are closest and within range');
-            }
         }
+        // Removed proximity pause - game continues while collecting targets
     }
     
     // Proximity pause only applies to hero and target (no agent selection)
@@ -345,13 +347,17 @@ function render(currentTime) {
         agent.updateColor();
     }
     
-    // Draw all agents (except hero which is rendered separately)
+    // Draw all agents (except hero and targets which are rendered separately)
     for (let i = 0; i < swarm.length; i++) {
         // Skip hero (index 0) - it's rendered separately with phase color
-        // Targets are now separate objects (not agents), rendered separately
-        if (i !== 0) {
-            swarm[i].draw(ctx);
+        // Skip targets (indices 1-10 if present) - they're rendered separately as gold
+        if (i === 0) {
+            continue; // Skip hero
         }
+        if (heroLogic && heroLogic.targets.some(t => t.index === i && t.active)) {
+            continue; // Skip active targets (rendered as gold)
+        }
+        swarm[i].draw(ctx);
     }
     
     // Render stamina bar (on top of simulation, before hero/target)
