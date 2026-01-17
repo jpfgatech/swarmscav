@@ -83,4 +83,29 @@
             -   Initialize the Panel.
     - *Verify*:
         1.  Load `localhost:3000` -> Verify no panel and random behavior. Refresh to see different behaviors.
-        2.  Load `localhost:3000?mode=dev_secret` -> Verify panel appears and default settings are used.
+        2.  Load `localhost:3000?mode=dev_secret` -> Verify panel appears and default settings are used.- [x] **Refactor: Developer Panel (Text Inputs)**
+    - *Goal*: Convert the Developer Panel from "Exploration Tools" (Sliders) to "Precision Tools" (Text Boxes).
+    - *Logic*:
+        -   **Condition**: Only execute this if `isDevMode` is true.
+        -   **UI Change**: Rewrite the `ParameterPanel` class.
+            -   Replace all `<input type="range">` elements with `<input type="number">`.
+            -   Remove `min/max` constraints (allow typing any float).
+            -   Use `onchange` and `blur` events to apply values (to prevent lag while typing).
+    - *Constraint*: Ensure inputs handle standard values (e.g., "1.0") and extreme scientific notation if needed.
+    - *Verify*: Enter Developer Mode. Type "1024" into `J`. Verify the simulation reacts instantly/upon enter.
+
+- [x] **Feature: Multi-Target Scavenger Hunt**
+    - *Goal*: Transition from "Reach 1 Target" to "Collect 10 Targets".
+    - *Logic*:
+        1.  **State**: Update `SimulationState` to track an array of 10 Target objects `{x, y, active}` instead of a single Target.
+        2.  **Initialization**: Randomly spawn 10 targets within bounds.
+        3.  **Update Loop**:
+            -   Iterate through all *active* targets.
+            -   Check condition: `distance(Hero, target_i) < (Radius_H + Radius_T)`.
+            -   **On Hit**: Mark target as `active = false` (Remove from play).
+        4.  **Win Condition**: If `activeTargets.length == 0`, Trigger `Game Won` (Pause).
+    - *Visuals*: Render all 10 targets. Stop rendering them individually as they are collected.
+    - *Verify*:
+        1.  Start game. Count 10 gold dots.
+        2.  Steer Hero into one. It should disappear. Game continues.
+        3.  Collect all 10. Game should freeze/win.
