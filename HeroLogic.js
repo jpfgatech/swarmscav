@@ -296,7 +296,10 @@ export class HeroLogic {
         ctx.arc(hero.x, hero.y, radius, 0, 2 * Math.PI);
         ctx.fill();
         
-        // Glow is now rendered separately in renderGlows() before all agents
+        // Draw white border to distinguish hero
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
     }
     
     /**
@@ -410,7 +413,10 @@ export class HeroLogic {
             ctx.arc(targetAgent.x, targetAgent.y, radius, 0, 2 * Math.PI);
             ctx.fill();
             
-            // Glow is now rendered separately in renderGlows() before all agents
+            // Draw white border to distinguish target
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
         }
     }
     
@@ -474,9 +480,12 @@ export class HeroLogic {
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(demonAgent.x, demonAgent.y, radius, 0, 2 * Math.PI);
-            ctx.fill();
+            ctx.stroke();
             
-            // Glow is now rendered separately in renderGlows() before all agents
+            // Draw white border to distinguish demon
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
         }
     }
     
