@@ -149,7 +149,7 @@ export function renderGodRayBurst(ctx, x, y, heroColor, time) {
     // Star 1: Hero color, 6-point, thin arms (not needle-like, but thinner)
     ctx.globalAlpha = 1.0; // Will use flat alpha in fillStyle
     ctx.translate(x, y);
-    const rot1 = time * 0.2; // Slow clockwise rotation
+    const rot1 = time * 1.0; // Faster clockwise rotation
     ctx.scale(1.0 + Math.sin(time) * 0.1, 1.0 + Math.sin(time) * 0.1);
     ctx.rotate(rot1);
     drawStar(ctx, 0, 0, 6, maxRadius * 0.9, maxRadius * 0.15, rot1, 0.25, 0.18, heroColor); // Thin arms, less transparent (alpha 0.18)
@@ -158,28 +158,28 @@ export function renderGodRayBurst(ctx, x, y, heroColor, time) {
     // Star 2: White, 8-point, needle-like (very small inner radius)
     ctx.globalAlpha = 1.0;
     ctx.translate(x, y);
-    const rot2 = time * -0.5; // Fast counter-clockwise rotation
-    ctx.scale(0.8, 0.8);
+    const rot2 = time * -1.2; // Faster counter-clockwise rotation
+    ctx.scale(1.0, 1.0); // Same size as largest
     ctx.rotate(rot2);
-    drawStar(ctx, 0, 0, 8, maxRadius * 0.85, maxRadius * 0.05, rot2, 0.2, 0.15, 'white'); // Needle-like, less transparent (alpha 0.15)
+    drawStar(ctx, 0, 0, 8, maxRadius * 0.88, maxRadius * 0.05, rot2, 0.2, 0.15, 'white'); // Needle-like, less transparent (alpha 0.15)
     ctx.resetTransform();
     
     // Star 3: Hero color, 5-point, thin arms
     ctx.globalAlpha = 1.0;
     ctx.translate(x, y);
-    const rot3 = time * 0.35; // Medium rotation
-    ctx.scale(0.75, 0.75);
+    const rot3 = time * 1.5; // Faster rotation
+    ctx.scale(1.0, 1.0); // Same size as largest
     ctx.rotate(rot3);
-    drawStar(ctx, 0, 0, 5, maxRadius * 0.8, maxRadius * 0.12, rot3, 0.3, 0.12, heroColor); // Thin arms, less transparent (alpha 0.12)
+    drawStar(ctx, 0, 0, 5, maxRadius * 0.87, maxRadius * 0.12, rot3, 0.3, 0.12, heroColor); // Thin arms, less transparent (alpha 0.12)
     ctx.resetTransform();
     
     // Star 4: White, 7-point, needle-like
     ctx.globalAlpha = 1.0;
     ctx.translate(x, y);
-    const rot4 = time * -0.3; // Slow counter-clockwise
-    ctx.scale(0.65, 0.65);
+    const rot4 = time * -0.8; // Faster counter-clockwise
+    ctx.scale(1.0, 1.0); // Same size as largest
     ctx.rotate(rot4);
-    drawStar(ctx, 0, 0, 7, maxRadius * 0.75, maxRadius * 0.04, rot4, 0.15, 0.10, 'white'); // Needle-like, less transparent (alpha 0.10)
+    drawStar(ctx, 0, 0, 7, maxRadius * 0.89, maxRadius * 0.04, rot4, 0.15, 0.10, 'white'); // Needle-like, less transparent (alpha 0.10)
     ctx.resetTransform();
     
     ctx.restore();
