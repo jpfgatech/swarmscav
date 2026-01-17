@@ -16,14 +16,14 @@ export const Config = {
     // ============================================================================
     // Initial Conditions
     // ============================================================================
-    BASE_OMEGA: 0.02, // Common base intrinsic frequency for all agents
-    OMEGA_VARIATION: 0.02, // Random variation range for omega
+    BASE_OMEGA: 0.1, // Common base intrinsic frequency for all agents
+    OMEGA_VARIATION: 0.0, // Random variation range for omega
 
     // ============================================================================
     // Swarmalator Coupling Constants
     // ============================================================================
-    J: 1.2, // Spatial coupling constant (phase-based spatial attraction/repulsion)
-    K: 0.00, // Phase coupling constant (spatial-based phase synchronization)
+    J: 2.0, // Spatial coupling constant (phase-based spatial attraction/repulsion)
+    K: -1.0, // Phase coupling constant (spatial-based phase synchronization)
 
     // ============================================================================
     // Spatial Forces

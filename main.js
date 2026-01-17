@@ -388,7 +388,7 @@ function getGameMode() {
 
 // Preset configurations for Player Mode
 const PRESET_CONFIGS = [
-    { J: 2.5, K: -1.0 },
+    { J: 2.0, K: -1.0 },  // Preset 1: matches default config (restored from commit 7dc61c9)
     { J: 2.5, K: -0.16, TIME_SCALE: 250 },
     { J: 8.0, K: -8.0 },
     { J: 8.0, K: -4.0, TIME_SCALE: 50 }
