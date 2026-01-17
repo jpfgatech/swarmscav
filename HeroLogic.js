@@ -28,13 +28,19 @@ export class HeroLogic {
         this.targets = [];
         this.initializeTargets(targetAgents);
         
+        // Demon entities: track demon agent indices {index}
+        // Demons are agents in the swarm that move with physics
+        // Initially empty (can be populated later)
+        this.activeDemons = [];
+        
         // Shared stamina system (common resource for both channels)
         this.maxStamina = 2.0; // Maximum stamina in seconds
         this.currentStamina = 2.0; // Current stamina (initially full)
         this.isExhausted = false; // Whether stamina is depleted
         
-        // Store previous positions for targets (for Channel B freeze)
+        // Store previous positions for targets and demons (for Channel B freeze)
         this.targetPrevPositions = new Map();
+        this.demonPrevPositions = new Map();
         
         // Initialize previous position if provided
         if (initialAgent) {
@@ -135,8 +141,9 @@ export class HeroLogic {
                     this.prevPos = { x: hero.x, y: hero.y };
                 }
                 
-                // Channel B: Freeze all active targets
+                // Channel B: Freeze all active targets AND demons
                 if (this.isChannelBActive) {
+                    // Freeze targets
                     for (const target of this.targets) {
                         if (!target.active) {
                             continue; // Skip inactive targets
@@ -159,6 +166,26 @@ export class HeroLogic {
                         targetAgent.vx = 0;
                         targetAgent.vy = 0;
                     }
+                    
+                    // Freeze demons
+                    for (const demon of this.activeDemons) {
+                        if (demon.index >= agents.length) {
+                            continue;
+                        }
+                        
+                        const demonAgent = agents[demon.index];
+                        
+                        // Store previous position if not already stored
+                        if (!this.demonPrevPositions.has(demon.index)) {
+                            this.demonPrevPositions.set(demon.index, { x: demonAgent.x, y: demonAgent.y });
+                        }
+                        
+                        const prevPos = this.demonPrevPositions.get(demon.index);
+                        demonAgent.x = prevPos.x;
+                        demonAgent.y = prevPos.y;
+                        demonAgent.vx = 0;
+                        demonAgent.vy = 0;
+                    }
                 } else {
                     // Update previous positions for targets
                     for (const target of this.targets) {
@@ -167,6 +194,15 @@ export class HeroLogic {
                         }
                         const targetAgent = agents[target.index];
                         this.targetPrevPositions.set(target.index, { x: targetAgent.x, y: targetAgent.y });
+                    }
+                    
+                    // Update previous positions for demons
+                    for (const demon of this.activeDemons) {
+                        if (demon.index >= agents.length) {
+                            continue;
+                        }
+                        const demonAgent = agents[demon.index];
+                        this.demonPrevPositions.set(demon.index, { x: demonAgent.x, y: demonAgent.y });
                     }
                 }
             } else {
@@ -188,6 +224,15 @@ export class HeroLogic {
                     const targetAgent = agents[target.index];
                     this.targetPrevPositions.set(target.index, { x: targetAgent.x, y: targetAgent.y });
                 }
+                
+                // Update previous positions for demons
+                for (const demon of this.activeDemons) {
+                    if (demon.index >= agents.length) {
+                        continue;
+                    }
+                    const demonAgent = agents[demon.index];
+                    this.demonPrevPositions.set(demon.index, { x: demonAgent.x, y: demonAgent.y });
+                }
             }
         } else {
             // Recovery: Both channels inactive
@@ -208,6 +253,15 @@ export class HeroLogic {
                 }
                 const targetAgent = agents[target.index];
                 this.targetPrevPositions.set(target.index, { x: targetAgent.x, y: targetAgent.y });
+            }
+            
+            // Update previous positions for demons
+            for (const demon of this.activeDemons) {
+                if (demon.index >= agents.length) {
+                    continue;
+                }
+                const demonAgent = agents[demon.index];
+                this.demonPrevPositions.set(demon.index, { x: demonAgent.x, y: demonAgent.y });
             }
         }
     }
@@ -269,6 +323,40 @@ export class HeroLogic {
             ctx.fill();
             
             // Draw white border to distinguish target
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+    }
+    
+    /**
+     * Renders all demons with special styling (brick red, standard agent size)
+     * @param {CanvasRenderingContext2D} ctx - 2D rendering context
+     * @param {Array} agents - Array of Agent objects (includes demon agents)
+     */
+    renderDemons(ctx, agents) {
+        // Standard agent radius (4 pixels, same as regular agents)
+        const radius = 4;
+        
+        // Brick red color: hsl(0, 60%, 40%)
+        const demonColor = 'hsl(0, 60%, 40%)';
+        
+        // Render all demons (demons are agents in the swarm)
+        for (const demon of this.activeDemons) {
+            // Check if demon agent index is valid
+            if (demon.index >= agents.length) {
+                continue;
+            }
+            
+            const demonAgent = agents[demon.index];
+            
+            // Draw demon as brick red circle
+            ctx.fillStyle = demonColor;
+            ctx.beginPath();
+            ctx.arc(demonAgent.x, demonAgent.y, radius, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Draw white border to distinguish demon
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 2;
             ctx.stroke();
@@ -450,6 +538,55 @@ export class HeroLogic {
      */
     getActiveTargetCount() {
         return this.targets.filter(t => t.active).length;
+    }
+    
+    /**
+     * Checks if Hero has collided with any demon (game over condition)
+     * @param {Array} agents - Array of Agent objects (includes demon agents)
+     * @param {number} canvasWidth - Canvas width (for toroidal wrapping)
+     * @param {number} canvasHeight - Canvas height (for toroidal wrapping)
+     * @returns {boolean} - True if Hero has collided with a demon (game over)
+     */
+    checkDemonCollision(agents, canvasWidth, canvasHeight) {
+        if (this.heroIndex >= agents.length) {
+            return false;
+        }
+        
+        const hero = agents[this.heroIndex];
+        const HERO_RADIUS = 4;
+        const DEMON_RADIUS = 4;
+        const COLLISION_DISTANCE = HERO_RADIUS + DEMON_RADIUS;
+        
+        // Check collision with all demons
+        for (const demon of this.activeDemons) {
+            // Check if demon agent index is valid
+            if (demon.index >= agents.length) {
+                continue;
+            }
+            
+            const demonAgent = agents[demon.index];
+            
+            // Calculate distance with toroidal wrapping
+            let dx = demonAgent.x - hero.x;
+            let dy = demonAgent.y - hero.y;
+            
+            // Handle toroidal wrapping
+            if (Math.abs(dx) > canvasWidth / 2) {
+                dx = dx > 0 ? dx - canvasWidth : dx + canvasWidth;
+            }
+            if (Math.abs(dy) > canvasHeight / 2) {
+                dy = dy > 0 ? dy - canvasHeight : dy + canvasHeight;
+            }
+            
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Check collision: distance < (Radius_H + Radius_D)
+            if (distance < COLLISION_DISTANCE) {
+                return true; // Game Over!
+            }
+        }
+        
+        return false;
     }
     
     /**

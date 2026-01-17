@@ -278,6 +278,13 @@ function updatePhysics(deltaTime, realDeltaTime) {
             window.GAME_STATE = 'WON';
             console.log('Game won: All targets collected!');
         }
+        
+        // Check game over condition: Hero collides with demon
+        if (heroLogic.checkDemonCollision(swarm, canvas.width, canvas.height)) {
+            window.SIMULATION_PAUSED = true;
+            window.GAME_STATE = 'LOST';
+            console.log('Game over: Hero collided with demon!');
+        }
         // Removed proximity pause - game continues while collecting targets
     }
     
@@ -369,6 +376,7 @@ function render(currentTime) {
     if (heroLogic) {
         heroLogic.renderHero(ctx, swarm);
         heroLogic.renderTarget(ctx, swarm);
+        heroLogic.renderDemons(ctx, swarm);
     }
     
     // Render energy monitor (EKG-style graph) if enabled
