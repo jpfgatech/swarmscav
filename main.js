@@ -374,6 +374,9 @@ function render(currentTime) {
     
     // Render hero with phase-based color (after color update)
     if (heroLogic) {
+        // Render atmospheric god ray effect at hero position (before hero to appear behind)
+        heroLogic.renderGodRayBurst(ctx, swarm);
+        
         heroLogic.renderHero(ctx, swarm);
         heroLogic.renderTarget(ctx, swarm);
         heroLogic.renderDemons(ctx, swarm);

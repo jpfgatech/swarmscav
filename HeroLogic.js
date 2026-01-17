@@ -1,3 +1,5 @@
+import { renderGodRayBurst } from './GlowRenderer.js';
+
 /**
  * HeroLogic: Hero Anchor Mechanic (Hold to Stop) & Multi-Target Scavenger Hunt
  * 
@@ -292,6 +294,24 @@ export class HeroLogic {
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
         ctx.stroke();
+    }
+    
+    /**
+     * Renders atmospheric god ray effect at hero position
+     * Soft, diffused rays radiating from bright white center
+     * @param {CanvasRenderingContext2D} ctx - 2D rendering context
+     * @param {Array} agents - Array of Agent objects
+     */
+    renderGodRayBurst(ctx, agents) {
+        if (this.heroIndex >= agents.length) {
+            return; // Hero index out of bounds
+        }
+        
+        const hero = agents[this.heroIndex];
+        
+        // Render atmospheric god rays at hero position
+        // Soft, diffused rays with bright white center
+        renderGodRayBurst(ctx, hero.x, hero.y, 16, 80, 0.5);
     }
     
     /**
