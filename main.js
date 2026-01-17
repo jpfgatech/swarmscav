@@ -354,6 +354,12 @@ function render(currentTime) {
         agent.updateColor();
     }
     
+    // Render glows first (before all agents) so they appear beneath
+    if (heroLogic) {
+        const currentTimeSeconds = (performance.now() - simulationStartTime) / 1000;
+        heroLogic.renderGlows(ctx, swarm, currentTimeSeconds);
+    }
+    
     // Draw all agents (except hero, targets, and demons which are rendered separately)
     for (let i = 0; i < swarm.length; i++) {
         // Skip hero (index 0) - it's rendered separately with phase color
@@ -376,12 +382,9 @@ function render(currentTime) {
         heroLogic.renderStaminaBar(ctx, canvas.width, canvas.height);
     }
     
-    // Render hero, targets, and demons with glow effects
+    // Render hero, targets, and demons (glows already rendered above)
     if (heroLogic) {
-        // Pass time for glow animation
         const currentTimeSeconds = (performance.now() - simulationStartTime) / 1000;
-        
-        // Render glow effects (before agents to appear behind)
         heroLogic.renderHero(ctx, swarm, currentTimeSeconds);
         heroLogic.renderTarget(ctx, swarm, currentTimeSeconds);
         heroLogic.renderDemons(ctx, swarm, currentTimeSeconds);

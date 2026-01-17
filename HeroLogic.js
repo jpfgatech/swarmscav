@@ -284,7 +284,7 @@ export class HeroLogic {
         
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
-        const glowRadius = radius * 3.5 * 5; // TEMPORARY: Expanded by 5x (was 14px, now 70px)
+        const glowRadius = radius * 3.5 * 2.5; // TEMPORARY: 2.5x expanded (was 14px, now 35px, reduced from 5x)
         
         // Draw hero with fuzzy boundary (radial gradient fade-out)
         const gradient = ctx.createRadialGradient(hero.x, hero.y, 0, hero.x, hero.y, radius);
@@ -297,18 +297,73 @@ export class HeroLogic {
         ctx.arc(hero.x, hero.y, radius, 0, 2 * Math.PI);
         ctx.fill();
         
-        // Render god rays glow effect
-        renderGodRays(
-            ctx,
-            hero.x,
-            hero.y,
-            'rgb(0, 255, 255)',
-            GlowConfig.hero.rayCount,
-            GlowConfig.hero.rotationSpeed,
-            time,
-            glowRadius,
-            `hero-${this.heroIndex}`
-        );
+        // Glow is now rendered separately in renderGlows() before all agents
+    }
+    
+    /**
+     * Renders only the glow effects (no agents) - called before all agents
+     * @param {CanvasRenderingContext2D} ctx - 2D rendering context
+     * @param {Array} agents - Array of Agent objects
+     * @param {number} time - Current time in seconds (for glow animation)
+     */
+    renderGlows(ctx, agents, time) {
+        const radius = 4;
+        const glowRadius = radius * 3.5 * 2.5; // TEMPORARY: 2.5x expanded (was 14px, now 35px, reduced from 5x)
+        
+        // Render hero glow
+        if (this.heroIndex < agents.length) {
+            const hero = agents[this.heroIndex];
+            renderGodRays(
+                ctx,
+                hero.x,
+                hero.y,
+                'rgb(0, 255, 255)',
+                GlowConfig.hero.rayCount,
+                GlowConfig.hero.rotationSpeed,
+                time,
+                glowRadius,
+                `hero-${this.heroIndex}`
+            );
+        }
+        
+        // Render target glows
+        for (const target of this.targets) {
+            if (!target.active || target.index >= agents.length) {
+                continue;
+            }
+            const targetAgent = agents[target.index];
+            renderGodRays(
+                ctx,
+                targetAgent.x,
+                targetAgent.y,
+                'gold',
+                GlowConfig.target.rayCount,
+                GlowConfig.target.rotationSpeed,
+                time,
+                glowRadius,
+                `target-${target.index}`
+            );
+        }
+        
+        // Render demon glows
+        for (const demon of this.activeDemons) {
+            if (demon.index >= agents.length) {
+                continue;
+            }
+            const demonAgent = agents[demon.index];
+            const demonColor = 'hsl(0, 60%, 40%)';
+            renderGodRays(
+                ctx,
+                demonAgent.x,
+                demonAgent.y,
+                demonColor,
+                GlowConfig.demon.rayCount,
+                GlowConfig.demon.rotationSpeed,
+                time,
+                glowRadius,
+                `demon-${demon.index}`
+            );
+        }
     }
     
     /**
@@ -318,7 +373,7 @@ export class HeroLogic {
      * @param {number} time - Current time in seconds (for rotation animation)
      */
     renderGodRayBurst(ctx, agents, time) {
-        // Glow is now rendered in renderHero method
+        // Glow is now rendered in renderGlows method
         // This method kept for compatibility but does nothing
     }
     
@@ -331,7 +386,7 @@ export class HeroLogic {
     renderTarget(ctx, agents, time) {
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
-        const glowRadius = radius * 3.5 * 5; // TEMPORARY: Expanded by 5x (was 14px, now 70px)
+        const glowRadius = radius * 3.5 * 2.5; // TEMPORARY: 2.5x expanded (was 14px, now 35px, reduced from 5x)
         
         // Render all active targets (targets are agents in the swarm)
         for (const target of this.targets) {
@@ -357,18 +412,7 @@ export class HeroLogic {
             ctx.arc(targetAgent.x, targetAgent.y, radius, 0, 2 * Math.PI);
             ctx.fill();
             
-            // Render god rays glow effect
-            renderGodRays(
-                ctx,
-                targetAgent.x,
-                targetAgent.y,
-                'gold',
-                GlowConfig.target.rayCount,
-                GlowConfig.target.rotationSpeed,
-                time,
-                glowRadius,
-                `target-${target.index}`
-            );
+            // Glow is now rendered separately in renderGlows() before all agents
         }
     }
     
@@ -381,7 +425,7 @@ export class HeroLogic {
     renderDemons(ctx, agents, time) {
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
-        const glowRadius = radius * 3.5 * 5; // TEMPORARY: Expanded by 5x (was 14px, now 70px)
+        const glowRadius = radius * 3.5 * 2.5; // TEMPORARY: 2.5x expanded (was 14px, now 35px, reduced from 5x)
         
         // Brick red color: hsl(0, 60%, 40%)
         const demonColor = 'hsl(0, 60%, 40%)';
@@ -435,18 +479,7 @@ export class HeroLogic {
             ctx.arc(demonAgent.x, demonAgent.y, radius, 0, 2 * Math.PI);
             ctx.fill();
             
-            // Render god rays glow effect
-            renderGodRays(
-                ctx,
-                demonAgent.x,
-                demonAgent.y,
-                demonColor,
-                GlowConfig.demon.rayCount,
-                GlowConfig.demon.rotationSpeed,
-                time,
-                glowRadius,
-                `demon-${demon.index}`
-            );
+            // Glow is now rendered separately in renderGlows() before all agents
         }
     }
     
