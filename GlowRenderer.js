@@ -144,32 +144,42 @@ export function renderGodRayBurst(ctx, x, y, heroColor, time) {
     // Use lighter blending for atmospheric glow (but keep transparency/shady)
     ctx.globalCompositeOperation = 'lighter';
     
-    // Layer 1 (Core): REMOVED temporarily to see glow effect
+    // Multiple stars for interference - all with thin/needle-like arms to avoid white circle
     
-    // Layer 2 (Slow Flow): Fewer arms (6-point), irregular star - hero color, slow CW rotation
-    // Arms are uneven (noise variation), much more transparent (flat alpha)
+    // Star 1: Hero color, 6-point, thin arms (not needle-like, but thinner)
     ctx.globalAlpha = 1.0; // Will use flat alpha in fillStyle
     ctx.translate(x, y);
-    const layer2Rotation = time * 0.2; // Slow clockwise rotation
-    const layer2Scale = 1.0 + Math.sin(time) * 0.1; // Slight pulse
-    ctx.scale(layer2Scale, layer2Scale);
-    ctx.rotate(layer2Rotation);
-    const layer2OuterRadius = maxRadius * 0.9;
-    const layer2InnerRadius = maxRadius * 0.4; // Irregular/narrow points
-    drawStar(ctx, 0, 0, 6, layer2OuterRadius, layer2InnerRadius, layer2Rotation, 0.25, 0.08, heroColor); // Much more transparent
+    const rot1 = time * 0.2; // Slow clockwise rotation
+    ctx.scale(1.0 + Math.sin(time) * 0.1, 1.0 + Math.sin(time) * 0.1);
+    ctx.rotate(rot1);
+    drawStar(ctx, 0, 0, 6, maxRadius * 0.9, maxRadius * 0.15, rot1, 0.25, 0.06, heroColor); // Thin arms (innerRadius 0.15)
     ctx.resetTransform();
     
-    // Layer 3 (Fast Jitter): Fewer arms (6-point), sharp star - white, fast CCW rotation
-    // Creates interference pattern with Layer 2, arms are uneven, much more transparent
-    ctx.globalAlpha = 1.0; // Will use flat alpha in fillStyle
+    // Star 2: White, 8-point, needle-like (very small inner radius)
+    ctx.globalAlpha = 1.0;
     ctx.translate(x, y);
-    const layer3Rotation = time * -0.5; // Fast counter-clockwise rotation
-    const layer3Scale = 0.7;
-    ctx.scale(layer3Scale, layer3Scale);
-    ctx.rotate(layer3Rotation);
-    const layer3OuterRadius = maxRadius * 0.8;
-    const layer3InnerRadius = maxRadius * 0.3; // Sharp points
-    drawStar(ctx, 0, 0, 6, layer3OuterRadius, layer3InnerRadius, layer3Rotation, 0.2, 0.06, 'white'); // Much more transparent
+    const rot2 = time * -0.5; // Fast counter-clockwise rotation
+    ctx.scale(0.8, 0.8);
+    ctx.rotate(rot2);
+    drawStar(ctx, 0, 0, 8, maxRadius * 0.85, maxRadius * 0.05, rot2, 0.2, 0.05, 'white'); // Needle-like (innerRadius 0.05)
+    ctx.resetTransform();
+    
+    // Star 3: Hero color, 5-point, thin arms
+    ctx.globalAlpha = 1.0;
+    ctx.translate(x, y);
+    const rot3 = time * 0.35; // Medium rotation
+    ctx.scale(0.75, 0.75);
+    ctx.rotate(rot3);
+    drawStar(ctx, 0, 0, 5, maxRadius * 0.8, maxRadius * 0.12, rot3, 0.3, 0.04, heroColor); // Thin arms
+    ctx.resetTransform();
+    
+    // Star 4: White, 7-point, needle-like
+    ctx.globalAlpha = 1.0;
+    ctx.translate(x, y);
+    const rot4 = time * -0.3; // Slow counter-clockwise
+    ctx.scale(0.65, 0.65);
+    ctx.rotate(rot4);
+    drawStar(ctx, 0, 0, 7, maxRadius * 0.75, maxRadius * 0.04, rot4, 0.15, 0.03, 'white'); // Needle-like
     ctx.resetTransform();
     
     ctx.restore();
