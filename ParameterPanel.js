@@ -1,4 +1,4 @@
-t/**
+/**
  * ParameterPanel: Interactive UI for real-time parameter tuning
  * 
  * Provides sliders and controls for:
