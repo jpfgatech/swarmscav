@@ -1,6 +1,6 @@
 - [x] **Feature: Capture & Corruption Mechanic**
 
-- [ ] **Feature: Procedural "God Ray" Burst**
+- [x] **Feature: Procedural "God Ray" Burst**
     - *Goal*: Implement the specific logic where catching a Target converts a neighbor into a Demon.
     - *Trigger*: Hero collides with Target $T_{hit}$.
     - *Logic*:
