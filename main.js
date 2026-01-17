@@ -376,16 +376,15 @@ function render(currentTime) {
         heroLogic.renderStaminaBar(ctx, canvas.width, canvas.height);
     }
     
-    // Render hero with phase-based color (after color update)
+    // Render hero, targets, and demons with glow effects
     if (heroLogic) {
-        // Render atmospheric god ray effect at hero position (before hero to appear behind)
-        // Pass time for flowing rotation animation
+        // Pass time for glow animation
         const currentTimeSeconds = (performance.now() - simulationStartTime) / 1000;
-        heroLogic.renderGodRayBurst(ctx, swarm, currentTimeSeconds);
         
-        heroLogic.renderHero(ctx, swarm);
-        heroLogic.renderTarget(ctx, swarm);
-        heroLogic.renderDemons(ctx, swarm);
+        // Render glow effects (before agents to appear behind)
+        heroLogic.renderHero(ctx, swarm, currentTimeSeconds);
+        heroLogic.renderTarget(ctx, swarm, currentTimeSeconds);
+        heroLogic.renderDemons(ctx, swarm, currentTimeSeconds);
     }
     
     // Render energy monitor (EKG-style graph) if enabled

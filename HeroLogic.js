@@ -1,4 +1,5 @@
-import { renderGodRayBurst } from './GlowRenderer.js';
+import { renderGodRays } from './GlowRenderer.js';
+import { GlowConfig } from './glowConfig.js';
 
 /**
  * HeroLogic: Hero Anchor Mechanic (Hold to Stop) & Multi-Target Scavenger Hunt
@@ -294,33 +295,26 @@ export class HeroLogic {
     }
     
     /**
-     * Renders atmospheric god ray effect with flowing interference at hero position
-     * Soft, rotating star interference pattern emanating from bright white center
+     * Renders god ray glow effect at hero position (called separately if needed)
      * @param {CanvasRenderingContext2D} ctx - 2D rendering context
      * @param {Array} agents - Array of Agent objects
      * @param {number} time - Current time in seconds (for rotation animation)
      */
     renderGodRayBurst(ctx, agents, time) {
-        if (this.heroIndex >= agents.length) {
-            return; // Hero index out of bounds
-        }
-        
-        const hero = agents[this.heroIndex];
-        const heroColor = hero.color; // Base hero color for Layer 2
-        
-        // Render atmospheric god rays with flowing interference
-        // Size: 3x agent radius (12px), shady/transparent, rotating for flow
-        renderGodRayBurst(ctx, hero.x, hero.y, heroColor, time);
+        // Glow is now rendered in renderHero method
+        // This method kept for compatibility but does nothing
     }
     
     /**
-     * Renders all active targets with special styling (gold, standard agent size)
+     * Renders all active targets with fuzzy boundary and glow effect
      * @param {CanvasRenderingContext2D} ctx - 2D rendering context
      * @param {Array} agents - Array of Agent objects (includes target agents)
+     * @param {number} time - Current time in seconds (for glow animation)
      */
-    renderTarget(ctx, agents) {
+    renderTarget(ctx, agents, time) {
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
+        const glowRadius = radius * 3.5; // 3-4x agent radius (14px)
         
         // Render all active targets (targets are agents in the swarm)
         for (const target of this.targets) {
@@ -335,27 +329,41 @@ export class HeroLogic {
             
             const targetAgent = agents[target.index];
             
-            // Draw target as gold circle
-            ctx.fillStyle = 'gold';
+            // Draw target with fuzzy boundary (radial gradient fade-out)
+            const gradient = ctx.createRadialGradient(targetAgent.x, targetAgent.y, 0, targetAgent.x, targetAgent.y, radius);
+            gradient.addColorStop(0, 'gold'); // Gold at center
+            gradient.addColorStop(0.7, 'rgba(255, 215, 0, 0.8)'); // Slight fade
+            gradient.addColorStop(1, 'rgba(255, 215, 0, 0)'); // Fade to transparent at edge
+            
+            ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(targetAgent.x, targetAgent.y, radius, 0, 2 * Math.PI);
             ctx.fill();
             
-            // Draw white border to distinguish target
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            // Render god rays glow effect
+            renderGodRays(
+                ctx,
+                targetAgent.x,
+                targetAgent.y,
+                'gold',
+                GlowConfig.target.rayCount,
+                GlowConfig.target.rotationSpeed,
+                time,
+                glowRadius
+            );
         }
     }
     
     /**
-     * Renders all demons with special styling (brick red, standard agent size)
+     * Renders all demons with fuzzy boundary and glow effect
      * @param {CanvasRenderingContext2D} ctx - 2D rendering context
      * @param {Array} agents - Array of Agent objects (includes demon agents)
+     * @param {number} time - Current time in seconds (for glow animation)
      */
-    renderDemons(ctx, agents) {
+    renderDemons(ctx, agents, time) {
         // Standard agent radius (4 pixels, same as regular agents)
         const radius = 4;
+        const glowRadius = radius * 3.5; // 3-4x agent radius (14px)
         
         // Brick red color: hsl(0, 60%, 40%)
         const demonColor = 'hsl(0, 60%, 40%)';
@@ -369,16 +377,57 @@ export class HeroLogic {
             
             const demonAgent = agents[demon.index];
             
-            // Draw demon as brick red circle
-            ctx.fillStyle = demonColor;
+            // Draw demon with fuzzy boundary (radial gradient fade-out)
+            // Convert HSL to RGB for gradient
+            const hslMatch = demonColor.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+            let demonRgb = { r: 163, g: 65, b: 65 }; // Default brick red
+            if (hslMatch) {
+                const h = parseFloat(hslMatch[1]) / 360;
+                const s = parseFloat(hslMatch[2]) / 100;
+                const l = parseFloat(hslMatch[3]) / 100;
+                if (s === 0) {
+                    const val = Math.round(l * 255);
+                    demonRgb = { r: val, g: val, b: val };
+                } else {
+                    const hue2rgb = (p, q, t) => {
+                        if (t < 0) t += 1;
+                        if (t > 1) t -= 1;
+                        if (t < 1/6) return p + (q - p) * 6 * t;
+                        if (t < 1/2) return q;
+                        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                        return p;
+                    };
+                    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                    const p = 2 * l - q;
+                    demonRgb = {
+                        r: Math.round(hue2rgb(p, q, h + 1/3) * 255),
+                        g: Math.round(hue2rgb(p, q, h) * 255),
+                        b: Math.round(hue2rgb(p, q, h - 1/3) * 255)
+                    };
+                }
+            }
+            
+            const gradient = ctx.createRadialGradient(demonAgent.x, demonAgent.y, 0, demonAgent.x, demonAgent.y, radius);
+            gradient.addColorStop(0, demonColor); // Brick red at center
+            gradient.addColorStop(0.7, `rgba(${demonRgb.r}, ${demonRgb.g}, ${demonRgb.b}, 0.8)`); // Slight fade
+            gradient.addColorStop(1, `rgba(${demonRgb.r}, ${demonRgb.g}, ${demonRgb.b}, 0)`); // Fade to transparent at edge
+            
+            ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(demonAgent.x, demonAgent.y, radius, 0, 2 * Math.PI);
             ctx.fill();
             
-            // Draw white border to distinguish demon
-            ctx.strokeStyle = '#fff';
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            // Render god rays glow effect
+            renderGodRays(
+                ctx,
+                demonAgent.x,
+                demonAgent.y,
+                demonColor,
+                GlowConfig.demon.rayCount,
+                GlowConfig.demon.rotationSpeed,
+                time,
+                glowRadius
+            );
         }
     }
     

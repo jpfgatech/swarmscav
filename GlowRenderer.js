@@ -1,186 +1,155 @@
 /**
- * GlowRenderer: Atmospheric God Ray Effect with Flowing Interference
+ * GlowRenderer: Volumetric God Ray Effect
  * 
- * Implements soft, flowing light rays with rotating star interference,
- * creating an ethereal, atmospheric effect through a hazy medium.
+ * Implements volumetric god rays using overlapping ray "leaves" that create
+ * a dense core through overlap, with pulsing alpha and rotation.
  */
 
 /**
- * Converts HSL color string to RGB values
- * @param {string} hslStr - HSL color string like "hsl(240, 30%, 60%)"
+ * Converts color string (HSL or RGB) to RGB values
+ * @param {string} colorStr - Color string like "hsl(240, 30%, 60%)" or "rgb(255, 0, 0)"
  * @returns {Object} Object with r, g, b values (0-255)
  */
-function hslToRgb(hslStr) {
-    // Parse HSL string: "hsl(240, 30%, 60%)"
-    const match = hslStr.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
-    if (!match) {
-        return { r: 255, g: 255, b: 255 }; // Default to white
-    }
-    
-    const h = parseFloat(match[1]) / 360; // Hue [0, 1]
-    const s = parseFloat(match[2]) / 100; // Saturation [0, 1]
-    const l = parseFloat(match[3]) / 100; // Lightness [0, 1]
-    
-    let r, g, b;
-    
-    if (s === 0) {
-        r = g = b = l; // Achromatic (grey)
-    } else {
-        const hue2rgb = (p, q, t) => {
-            if (t < 0) t += 1;
-            if (t > 1) t -= 1;
-            if (t < 1/6) return p + (q - p) * 6 * t;
-            if (t < 1/2) return q;
-            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-            return p;
-        };
-        
-        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-        const p = 2 * l - q;
-        
-        r = hue2rgb(p, q, h + 1/3);
-        g = hue2rgb(p, q, h);
-        b = hue2rgb(p, q, h - 1/3);
-    }
-    
-    return {
-        r: Math.round(r * 255),
-        g: Math.round(g * 255),
-        b: Math.round(b * 255)
-    };
-}
-
-/**
- * Draws a star shape with uneven arms and flat transparency (no radial gradient fade)
- * @param {CanvasRenderingContext2D} ctx - 2D rendering context
- * @param {number} cx - Center X coordinate
- * @param {number} cy - Center Y coordinate
- * @param {number} spikes - Number of spikes/points
- * @param {number} outerRadius - Base outer radius of the star
- * @param {number} innerRadius - Inner radius of the star
- * @param {number} rotation - Rotation angle in radians
- * @param {number} noiseAmount - Amount of variation for uneven arms (0-1)
- * @param {number} baseAlpha - Base alpha value (flat transparency, no gradient fade)
- * @param {string} colorStr - Color string (HSL or RGB) for the star
- */
-function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, rotation, noiseAmount = 0.3, baseAlpha = 1.0, colorStr = 'white') {
-    let rot = Math.PI / 2 * 3 + rotation;
-    let x = cx;
-    let y = cy;
-    let step = Math.PI / spikes;
-
-    // Calculate max radius with variations for gradient
-    let maxRadius = 0;
-    const armRadii = [];
-    for (let i = 0; i < spikes; i++) {
-        // Vary outer radius for each arm (makes arms uneven)
-        const outerVariation = 1 + (Math.sin(i * 1.7 + rotation) * noiseAmount);
-        const currentOuterRadius = outerRadius * outerVariation;
-        armRadii.push(currentOuterRadius);
-        if (currentOuterRadius > maxRadius) {
-            maxRadius = currentOuterRadius;
-        }
-    }
-
-    // Extract RGB from color string (HSL or RGB)
-    let r = 255, g = 255, b = 255;
+function colorToRgb(colorStr) {
     if (colorStr.startsWith('hsl')) {
-        const rgb = hslToRgb(colorStr);
-        r = rgb.r;
-        g = rgb.g;
-        b = rgb.b;
+        // Parse HSL string: "hsl(240, 30%, 60%)"
+        const match = colorStr.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+        if (!match) {
+            return { r: 200, g: 230, b: 255 }; // Default light blue
+        }
+        
+        const h = parseFloat(match[1]) / 360; // Hue [0, 1]
+        const s = parseFloat(match[2]) / 100; // Saturation [0, 1]
+        const l = parseFloat(match[3]) / 100; // Lightness [0, 1]
+        
+        let r, g, b;
+        
+        if (s === 0) {
+            r = g = b = l; // Achromatic (grey)
+        } else {
+            const hue2rgb = (p, q, t) => {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1/6) return p + (q - p) * 6 * t;
+                if (t < 1/2) return q;
+                if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                return p;
+            };
+            
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+        }
+        
+        return {
+            r: Math.round(r * 255),
+            g: Math.round(g * 255),
+            b: Math.round(b * 255)
+        };
     } else if (colorStr.startsWith('rgb')) {
         const match = colorStr.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
         if (match) {
-            r = parseInt(match[1]);
-            g = parseInt(match[2]);
-            b = parseInt(match[3]);
+            return {
+                r: parseInt(match[1]),
+                g: parseInt(match[2]),
+                b: parseInt(match[3])
+            };
         }
     }
-
-    // Flat transparency - no radial gradient fade
-    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${baseAlpha})`;
-
-    ctx.beginPath();
     
-    // Start from first outer point with noise variation
-    ctx.moveTo(cx + Math.cos(rot) * armRadii[0], cy + Math.sin(rot) * armRadii[0]);
-    
-    for (let i = 0; i < spikes; i++) {
-        const currentOuterRadius = armRadii[i];
-        
-        x = cx + Math.cos(rot) * currentOuterRadius;
-        y = cy + Math.sin(rot) * currentOuterRadius;
-        ctx.lineTo(x, y);
-        rot += step;
-
-        x = cx + Math.cos(rot) * innerRadius;
-        y = cy + Math.sin(rot) * innerRadius;
-        ctx.lineTo(x, y);
-        rot += step;
-    }
-    ctx.closePath();
-    
-    // Fill with flat transparency (no gradient fade)
-    ctx.fill();
+    // Default light blue
+    return { r: 200, g: 230, b: 255 };
 }
 
 /**
- * Renders atmospheric god rays with flowing interference at the specified position
- * Creates soft, rotating star interference pattern emanating from a bright white center
+ * Creates an array of ray objects for the god ray effect
+ * @param {number} count - Number of rays to create
+ * @returns {Array} Array of ray objects
+ */
+function createRays(count) {
+    const rays = [];
+    for (let i = 0; i < count; i++) {
+        rays.push({
+            angle: Math.random() * Math.PI * 2,
+            // Width factor: Determines how "fat" the leaf is
+            width: Math.random() * 0.5 + 0.2,
+            length: Math.random() * 0.5 + 0.2,
+            alphaPhase: Math.random() * Math.PI * 2,
+            alphaSpeed: Math.random() * 0.02 + 0.005,
+            maxAlpha: Math.random() * 0.3 + 0.1,
+            driftSpeed: (Math.random() - 0.5) * 0.002
+        });
+    }
+    return rays;
+}
+
+/**
+ * Renders volumetric god rays at the specified position
  * @param {CanvasRenderingContext2D} ctx - 2D rendering context
  * @param {number} x - X coordinate of ray center
  * @param {number} y - Y coordinate of ray center
- * @param {string} heroColor - Base hero color for Layer 2
- * @param {number} time - Current time in seconds (for rotation animation)
+ * @param {string} baseColor - Base color for the rays (HSL or RGB)
+ * @param {number} rayCount - Number of rays to render
+ * @param {number} rotationSpeed - Base rotation speed
+ * @param {number} time - Current time in seconds (for animation)
+ * @param {number} maxRadius - Maximum radius of the glow (3-4x agent radius)
  */
-export function renderGodRayBurst(ctx, x, y, heroColor, time) {
-    // Agent radius is 4px, so 3x = 12px max radius
-    const AGENT_RADIUS = 4;
-    const maxRadius = AGENT_RADIUS * 3; // 12px
+export function renderGodRays(ctx, x, y, baseColor, rayCount, rotationSpeed, time, maxRadius) {
+    // Convert base color to RGB
+    const rgb = colorToRgb(baseColor);
+    
+    // Create rays if not already cached (we'll create fresh each frame for simplicity)
+    const rays = createRays(rayCount);
     
     ctx.save();
     
-    // Use lighter blending for atmospheric glow (but keep transparency/shady)
+    // Use lighter blending for volumetric effect
     ctx.globalCompositeOperation = 'lighter';
     
-    // Multiple stars for interference - all with thin/needle-like arms to avoid white circle
-    
-    // Star 1: Hero color, 6-point, thin arms (not needle-like, but thinner)
-    ctx.globalAlpha = 1.0; // Will use flat alpha in fillStyle
-    ctx.translate(x, y);
-    const rot1 = time * 1.0; // Faster clockwise rotation
-    ctx.scale(1.0 + Math.sin(time) * 0.1, 1.0 + Math.sin(time) * 0.1);
-    ctx.rotate(rot1);
-    drawStar(ctx, 0, 0, 6, maxRadius * 0.9, maxRadius * 0.15, rot1, 0.25, 0.18, heroColor); // Thin arms, less transparent (alpha 0.18)
-    ctx.resetTransform();
-    
-    // Star 2: White, 8-point, needle-like (very small inner radius)
-    ctx.globalAlpha = 1.0;
-    ctx.translate(x, y);
-    const rot2 = time * -1.2; // Faster counter-clockwise rotation
-    ctx.scale(1.0, 1.0); // Same size as largest
-    ctx.rotate(rot2);
-    drawStar(ctx, 0, 0, 8, maxRadius * 0.88, maxRadius * 0.05, rot2, 0.2, 0.15, 'white'); // Needle-like, less transparent (alpha 0.15)
-    ctx.resetTransform();
-    
-    // Star 3: Hero color, 5-point, thin arms
-    ctx.globalAlpha = 1.0;
-    ctx.translate(x, y);
-    const rot3 = time * 1.5; // Faster rotation
-    ctx.scale(1.0, 1.0); // Same size as largest
-    ctx.rotate(rot3);
-    drawStar(ctx, 0, 0, 5, maxRadius * 0.87, maxRadius * 0.12, rot3, 0.3, 0.12, heroColor); // Thin arms, less transparent (alpha 0.12)
-    ctx.resetTransform();
-    
-    // Star 4: White, 7-point, needle-like
-    ctx.globalAlpha = 1.0;
-    ctx.translate(x, y);
-    const rot4 = time * -0.8; // Faster counter-clockwise
-    ctx.scale(1.0, 1.0); // Same size as largest
-    ctx.rotate(rot4);
-    drawStar(ctx, 0, 0, 7, maxRadius * 0.89, maxRadius * 0.04, rot4, 0.15, 0.10, 'white'); // Needle-like, less transparent (alpha 0.10)
-    ctx.resetTransform();
+    // Render each ray
+    rays.forEach((ray) => {
+        ray.angle += ray.driftSpeed + rotationSpeed;
+        
+        const alphaPulse = (Math.sin(ray.alphaPhase + time * ray.alphaSpeed) + 1) / 2;
+        const currentAlpha = alphaPulse * ray.maxAlpha;
+        
+        if (currentAlpha < 0.01) return;
+        
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(ray.angle);
+        
+        const rayLengthPixels = ray.length * maxRadius;
+        
+        // Gradient: Starts earlier to ensure center isn't dark
+        const gradient = ctx.createLinearGradient(0, 0, rayLengthPixels, 0);
+        gradient.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`); // Tiny fade at very center
+        gradient.addColorStop(0.05, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${currentAlpha})`); // Max bright very close to center
+        gradient.addColorStop(0.5, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${currentAlpha * 0.5})`); // Mid fade
+        gradient.addColorStop(1, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`); // Tip fade
+        
+        ctx.fillStyle = gradient;
+        
+        // SHAPE: "Leaf" / "Petal"
+        // Use quadratic curves to create a leaf shape
+        // Bulge out quickly near the base (0.15 length) to create the disk overlap
+        // Then taper slowly to the tip.
+        const bulgePos = rayLengthPixels * 0.15; // The widest point (creating the disk)
+        const bulgeWidth = ray.width * (maxRadius * 0.1); // How fat the ray gets
+        
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        // Top curve: 0,0 -> Bulge Out -> Tip
+        ctx.quadraticCurveTo(bulgePos, -bulgeWidth, rayLengthPixels, 0);
+        // Bottom curve: Tip -> Bulge Out -> 0,0
+        ctx.quadraticCurveTo(bulgePos, bulgeWidth, 0, 0);
+        ctx.fill();
+        
+        ctx.restore();
+    });
     
     ctx.restore();
 }
