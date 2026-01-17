@@ -1,86 +1,101 @@
 /**
- * GlowRenderer: Atmospheric God Ray Effect
+ * GlowRenderer: Atmospheric God Ray Effect with Flowing Interference
  * 
- * Implements soft, diffused light rays radiating from a bright center,
+ * Implements soft, flowing light rays with rotating star interference,
  * creating an ethereal, atmospheric effect through a hazy medium.
  */
 
 /**
- * Renders atmospheric god rays at the specified position
- * Creates soft, diffused rays emanating from a bright white center
+ * Draws a star shape
+ * @param {CanvasRenderingContext2D} ctx - 2D rendering context
+ * @param {number} cx - Center X coordinate
+ * @param {number} cy - Center Y coordinate
+ * @param {number} spikes - Number of spikes/points
+ * @param {number} outerRadius - Outer radius of the star
+ * @param {number} innerRadius - Inner radius of the star
+ * @param {number} rotation - Rotation angle in radians
+ */
+function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius, rotation) {
+    let rot = Math.PI / 2 * 3 + rotation;
+    let x = cx;
+    let y = cy;
+    let step = Math.PI / spikes;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+        x = cx + Math.cos(rot) * outerRadius;
+        y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+
+        x = cx + Math.cos(rot) * innerRadius;
+        y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y);
+        rot += step;
+    }
+    ctx.lineTo(cx, cy - outerRadius);
+    ctx.closePath();
+    ctx.fill();
+}
+
+/**
+ * Renders atmospheric god rays with flowing interference at the specified position
+ * Creates soft, rotating star interference pattern emanating from a bright white center
  * @param {CanvasRenderingContext2D} ctx - 2D rendering context
  * @param {number} x - X coordinate of ray center
  * @param {number} y - Y coordinate of ray center
- * @param {number} rayCount - Number of rays to render (default: 16)
- * @param {number} maxRadius - Maximum radius of rays (default: 80)
- * @param {number} intensity - Overall intensity (0-1, default: 0.6)
+ * @param {string} heroColor - Base hero color for Layer 2
+ * @param {number} time - Current time in seconds (for rotation animation)
  */
-export function renderGodRayBurst(ctx, x, y, rayCount = 16, maxRadius = 80, intensity = 0.6) {
+export function renderGodRayBurst(ctx, x, y, heroColor, time) {
+    // Agent radius is 4px, so 3x = 12px max radius
+    const AGENT_RADIUS = 4;
+    const maxRadius = AGENT_RADIUS * 3; // 12px
+    
     ctx.save();
     
-    // Use lighter blending for atmospheric glow
+    // Use lighter blending for atmospheric glow (but keep transparency/shady)
     ctx.globalCompositeOperation = 'lighter';
     
-    // Core bright white center (focal point)
-    const centerGradient = ctx.createRadialGradient(x, y, 0, x, y, maxRadius * 0.15);
-    centerGradient.addColorStop(0, `rgba(255, 255, 255, ${intensity * 0.9})`);
-    centerGradient.addColorStop(0.5, `rgba(255, 255, 255, ${intensity * 0.3})`);
+    // Layer 1 (Core): Soft radial gradient - very subtle (shady, don't cover background)
+    ctx.globalAlpha = 0.15; // Very transparent to keep dark background visible
+    const centerGradient = ctx.createRadialGradient(x, y, 0, x, y, maxRadius * 0.4);
+    centerGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+    centerGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.3)');
     centerGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
     
     ctx.fillStyle = centerGradient;
     ctx.beginPath();
-    ctx.arc(x, y, maxRadius * 0.15, 0, 2 * Math.PI);
+    ctx.arc(x, y, maxRadius * 0.4, 0, 2 * Math.PI);
     ctx.fill();
     
-    // Render soft, diffused rays radiating outward
-    const angleStep = (2 * Math.PI) / rayCount;
+    // Layer 2 (Slow Flow): 12-point irregular star - hero color, slow CW rotation
+    ctx.globalAlpha = 0.2; // Shady/transparent
+    ctx.fillStyle = heroColor;
+    ctx.translate(x, y);
+    const layer2Rotation = time * 0.2; // Slow clockwise rotation
+    const layer2Scale = 1.0 + Math.sin(time) * 0.1; // Slight pulse
+    ctx.scale(layer2Scale, layer2Scale);
+    ctx.rotate(layer2Rotation);
+    const layer2OuterRadius = maxRadius * 0.9;
+    const layer2InnerRadius = maxRadius * 0.4; // Irregular/narrow points
+    drawStar(ctx, 0, 0, 12, layer2OuterRadius, layer2InnerRadius, 0);
+    ctx.resetTransform();
     
-    for (let i = 0; i < rayCount; i++) {
-        const angle = i * angleStep;
-        
-        // Vary ray width and length slightly for natural variation
-        const rayWidth = maxRadius * (0.08 + Math.sin(i * 2.3) * 0.02);
-        const rayLength = maxRadius * (0.7 + Math.sin(i * 1.7) * 0.2);
-        
-        // Create soft ray gradient (fades from bright to transparent)
-        const rayGradient = ctx.createLinearGradient(
-            x, y,
-            x + Math.cos(angle) * rayLength,
-            y + Math.sin(angle) * rayLength
-        );
-        
-        // Soft fade: bright at start, transparent at end
-        rayGradient.addColorStop(0, `rgba(255, 255, 255, ${intensity * 0.4})`);
-        rayGradient.addColorStop(0.3, `rgba(255, 255, 255, ${intensity * 0.25})`);
-        rayGradient.addColorStop(0.6, `rgba(220, 220, 220, ${intensity * 0.15})`);
-        rayGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        
-        ctx.fillStyle = rayGradient;
-        
-        // Draw soft ray as a tapered shape
-        // Create a soft-edged ray using overlapping gradients or a polygon
-        const rayHalfWidth = rayWidth / 2;
-        const perpAngle = angle + Math.PI / 2;
-        
-        // Ray shape: narrow at center, wider as it extends
-        ctx.beginPath();
-        const startX1 = x + Math.cos(perpAngle) * rayHalfWidth * 0.3;
-        const startY1 = y + Math.sin(perpAngle) * rayHalfWidth * 0.3;
-        const startX2 = x - Math.cos(perpAngle) * rayHalfWidth * 0.3;
-        const startY2 = y - Math.sin(perpAngle) * rayHalfWidth * 0.3;
-        
-        const endX1 = x + Math.cos(angle) * rayLength + Math.cos(perpAngle) * rayHalfWidth;
-        const endY1 = y + Math.sin(angle) * rayLength + Math.sin(perpAngle) * rayHalfWidth;
-        const endX2 = x + Math.cos(angle) * rayLength - Math.cos(perpAngle) * rayHalfWidth;
-        const endY2 = y + Math.sin(angle) * rayLength - Math.sin(perpAngle) * rayHalfWidth;
-        
-        ctx.moveTo(startX1, startY1);
-        ctx.lineTo(endX1, endY1);
-        ctx.lineTo(endX2, endY2);
-        ctx.lineTo(startX2, startY2);
-        ctx.closePath();
-        ctx.fill();
-    }
+    // Layer 3 (Fast Jitter): 8-point sharp star - white, fast CCW rotation
+    // Creates interference pattern with Layer 2
+    ctx.globalAlpha = 0.25; // Slightly more visible for interference
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.translate(x, y);
+    const layer3Rotation = time * -0.5; // Fast counter-clockwise rotation
+    const layer3Scale = 0.7;
+    ctx.scale(layer3Scale, layer3Scale);
+    ctx.rotate(layer3Rotation);
+    const layer3OuterRadius = maxRadius * 0.8;
+    const layer3InnerRadius = maxRadius * 0.3; // Sharp points
+    drawStar(ctx, 0, 0, 8, layer3OuterRadius, layer3InnerRadius, 0);
+    ctx.resetTransform();
     
     ctx.restore();
 }

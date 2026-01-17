@@ -297,21 +297,23 @@ export class HeroLogic {
     }
     
     /**
-     * Renders atmospheric god ray effect at hero position
-     * Soft, diffused rays radiating from bright white center
+     * Renders atmospheric god ray effect with flowing interference at hero position
+     * Soft, rotating star interference pattern emanating from bright white center
      * @param {CanvasRenderingContext2D} ctx - 2D rendering context
      * @param {Array} agents - Array of Agent objects
+     * @param {number} time - Current time in seconds (for rotation animation)
      */
-    renderGodRayBurst(ctx, agents) {
+    renderGodRayBurst(ctx, agents, time) {
         if (this.heroIndex >= agents.length) {
             return; // Hero index out of bounds
         }
         
         const hero = agents[this.heroIndex];
+        const heroColor = hero.color; // Base hero color for Layer 2
         
-        // Render atmospheric god rays at hero position
-        // Soft, diffused rays with bright white center
-        renderGodRayBurst(ctx, hero.x, hero.y, 16, 80, 0.5);
+        // Render atmospheric god rays with flowing interference
+        // Size: 3x agent radius (12px), shady/transparent, rotating for flow
+        renderGodRayBurst(ctx, hero.x, hero.y, heroColor, time);
     }
     
     /**
