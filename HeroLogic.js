@@ -290,10 +290,7 @@ export class HeroLogic {
         ctx.arc(hero.x, hero.y, radius, 0, 2 * Math.PI);
         ctx.fill();
         
-        // Draw white border to distinguish hero
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        // White border removed temporarily to see glow effect without white circle
     }
     
     /**

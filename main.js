@@ -354,15 +354,19 @@ function render(currentTime) {
         agent.updateColor();
     }
     
-    // Draw all agents (except hero and targets which are rendered separately)
+    // Draw all agents (except hero, targets, and demons which are rendered separately)
     for (let i = 0; i < swarm.length; i++) {
         // Skip hero (index 0) - it's rendered separately with phase color
         // Skip targets (indices 1-10 if present) - they're rendered separately as gold
+        // Skip demons - they're rendered separately as red
         if (i === 0) {
             continue; // Skip hero
         }
         if (heroLogic && heroLogic.targets.some(t => t.index === i && t.active)) {
             continue; // Skip active targets (rendered as gold)
+        }
+        if (heroLogic && heroLogic.activeDemons.some(d => d.index === i)) {
+            continue; // Skip demons (rendered as red)
         }
         swarm[i].draw(ctx);
     }
