@@ -11,12 +11,13 @@ You are an expert in generative art, physics simulations, and browser-based rend
 # Workflow: The "TODO" Loop
 
 When the user asks to "process tasks" or "work on the project," follow this loop:
-1.  **Read**: Parse `TODO.md` in the root directory.
+1.  **Read**: Parse `TODO.md` in the root directory. If there's nothing, draft your own TODO item.
 2.  **Pick**: Select the first unchecked item.
 3.  **Implement**: Write the code to fulfill the requirement.
 4.  **Verify**: Run the simulation or a test script to confirm stability.
 5.  **Commit**: Add and commit your updates, with clear commit message
 6.  **Mark**: Check off the item in `TODO.md` (`- [x]`) and move to the next.
+7.  **Move**: Append the completed TODO.md content into record.md, and clear TODO.md file
 
 # Coding Standards & Best Practices
 
