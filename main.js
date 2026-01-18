@@ -274,9 +274,24 @@ function updatePhysics(deltaTime, realDeltaTime) {
         // Only pause when ALL targets are collected (game won)
         // Individual target collection does not pause the game
         if (heroLogic.checkWinCondition(swarm, canvas.width, canvas.height)) {
-            window.SIMULATION_PAUSED = true;
-            window.GAME_STATE = 'WON';
-            console.log('Game won: All targets collected!');
+            // Check if we haven't already triggered stage progression
+            if (window.GAME_STATE !== 'STAGE_CLEARED' && window.GAME_STATE !== 'REBOOTING') {
+                window.SIMULATION_PAUSED = true;
+                window.GAME_STATE = 'STAGE_CLEARED';
+                console.log('Stage cleared! All targets collected! Rebooting with next preset in 1 second...');
+                
+                // Pause for 1 second, then reboot with next preset (only in player mode)
+                if (!isDevMode && currentPresetIndex !== null) {
+                    setTimeout(() => {
+                        const nextPresetIndex = currentPresetIndex + 1;
+                        window.GAME_STATE = 'REBOOTING';
+                        applyPresetAndReboot(nextPresetIndex);
+                    }, 1000);
+                } else {
+                    // Dev mode: just mark as won
+                    window.GAME_STATE = 'WON';
+                }
+            }
         }
         
         // Check game over condition: Hero collides with demon
@@ -389,6 +404,9 @@ function render(currentTime) {
         heroLogic.renderHero(ctx, swarm, currentTimeSeconds);
         heroLogic.renderTarget(ctx, swarm, currentTimeSeconds);
         heroLogic.renderDemons(ctx, swarm, currentTimeSeconds);
+        
+        // Render HUD in corner (lives, targets, demons)
+        heroLogic.renderHUD(ctx, canvas.width, canvas.height);
     }
     
     // Render energy monitor (EKG-style graph) if enabled
@@ -454,10 +472,46 @@ try {
     const gameMode = getGameMode();
     const isDevMode = gameMode === 'dev';
     
-    // Apply preset if in player mode (always starts with first preset)
+    // Track current preset index (global for stage progression)
     let currentPresetIndex = null;
     if (!isDevMode) {
         currentPresetIndex = applyPlayerPreset();
+    }
+    
+    // Function to apply a specific preset index and reinitialize
+    function applyPresetAndReboot(presetIndex) {
+        if (presetIndex < 0 || presetIndex >= PRESET_CONFIGS.length) {
+            console.log('All presets completed! Restarting from first preset.');
+            presetIndex = 0; // Loop back to first preset
+        }
+        
+        const preset = PRESET_CONFIGS[presetIndex];
+        console.log('Applying preset', presetIndex, preset);
+        
+        // Apply preset-specific overrides
+        if (preset.J !== undefined) {
+            RuntimeConfig.J = preset.J;
+        }
+        if (preset.K !== undefined) {
+            RuntimeConfig.K = preset.K;
+        }
+        if (preset.TIME_SCALE !== undefined) {
+            RuntimeConfig.TIME_SCALE = preset.TIME_SCALE;
+        }
+        
+        // Reset simulation state
+        window.SIMULATION_PAUSED = false;
+        window.GAME_STATE = null;
+        
+        // Reinitialize swarm with new preset
+        initialize();
+        
+        // Update panel if in dev mode
+        if (parameterPanel) {
+            parameterPanel.updateFromConfig(RuntimeConfig);
+        }
+        
+        currentPresetIndex = presetIndex;
     }
     
     initialize();

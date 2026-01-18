@@ -129,18 +129,5 @@ export class Agent {
         ctx.beginPath();
         ctx.arc(this.x, this.y, 4, 0, 2 * Math.PI);
         ctx.fill();
-        
-        // Draw velocity vector as a debug line
-        const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
-        const lineLength = speed * 5; // Scale for visibility
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(this.x, this.y);
-        ctx.lineTo(
-            this.x + (this.vx / speed) * lineLength,
-            this.y + (this.vy / speed) * lineLength
-        );
-        ctx.stroke();
     }
 }

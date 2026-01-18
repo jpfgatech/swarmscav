@@ -303,6 +303,79 @@ export class HeroLogic {
     }
     
     /**
+     * Renders HUD in corner: lives (1 hero icon), targets count (target icons), demons count (demon icons)
+     * Uses agent render effect as icons (not digits)
+     * @param {CanvasRenderingContext2D} ctx - 2D rendering context
+     * @param {number} canvasWidth - Canvas width
+     * @param {number} canvasHeight - Canvas height
+     */
+    renderHUD(ctx, canvasWidth, canvasHeight) {
+        const iconRadius = 3;
+        const iconSpacing = 8;
+        const margin = 15;
+        const startX = margin;
+        const startY = margin;
+        
+        // Hero icon (always 1 life)
+        const heroGradient = ctx.createRadialGradient(startX, startY, 0, startX, startY, iconRadius);
+        heroGradient.addColorStop(0, 'rgb(0, 255, 255)'); // Bright cyan
+        heroGradient.addColorStop(0.95, 'rgb(0, 255, 255)');
+        heroGradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+        
+        ctx.fillStyle = heroGradient;
+        ctx.beginPath();
+        ctx.arc(startX, startY, iconRadius, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        
+        // Target icons (count = active targets)
+        const targetCount = this.getActiveTargetCount();
+        for (let i = 0; i < targetCount; i++) {
+            const x = startX + (i + 1) * iconSpacing;
+            const targetGradient = ctx.createRadialGradient(x, startY, 0, x, startY, iconRadius);
+            targetGradient.addColorStop(0, 'gold');
+            targetGradient.addColorStop(0.95, 'gold');
+            targetGradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+            
+            ctx.fillStyle = targetGradient;
+            ctx.beginPath();
+            ctx.arc(x, startY, iconRadius, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+        }
+        
+        // Demon icons (count = active demons)
+        const demonCount = this.activeDemons.length;
+        if (demonCount > 0) {
+            const demonStartX = startX + (targetCount + 1) * iconSpacing;
+            for (let i = 0; i < demonCount; i++) {
+                const x = demonStartX + i * iconSpacing;
+                const demonColor = 'rgb(139, 69, 19)'; // Brick red
+                const demonRgb = { r: 139, g: 69, b: 19 };
+                const demonGradient = ctx.createRadialGradient(x, startY, 0, x, startY, iconRadius);
+                demonGradient.addColorStop(0, demonColor);
+                demonGradient.addColorStop(0.95, demonColor);
+                demonGradient.addColorStop(1, `rgba(${demonRgb.r}, ${demonRgb.g}, ${demonRgb.b}, 0)`);
+                
+                ctx.fillStyle = demonGradient;
+                ctx.beginPath();
+                ctx.arc(x, startY, iconRadius, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+        }
+    }
+    
+    /**
      * Renders only the glow effects (no agents) - called before all agents
      * @param {CanvasRenderingContext2D} ctx - 2D rendering context
      * @param {Array} agents - Array of Agent objects
