@@ -282,8 +282,8 @@ export class HeroLogic {
         
         const hero = agents[this.heroIndex];
         
-        // Standard agent radius (4 pixels, same as regular agents)
-        const radius = 4;
+        // Standard agent radius (6 pixels, same as regular agents)
+        const radius = 6;
         
         // Draw hero with fuzzy boundary (radial gradient fade-out, solid core)
         const gradient = ctx.createRadialGradient(hero.x, hero.y, 0, hero.x, hero.y, radius);
@@ -459,8 +459,8 @@ export class HeroLogic {
      * @param {number} time - Current time in seconds (for glow animation)
      */
     renderTarget(ctx, agents, time) {
-        // Standard agent radius (4 pixels, same as regular agents)
-        const radius = 4;
+        // Standard agent radius (6 pixels, same as regular agents)
+        const radius = 6;
         
         // Render all active targets (targets are agents in the swarm)
         for (const target of this.targets) {
@@ -500,8 +500,8 @@ export class HeroLogic {
      * @param {number} time - Current time in seconds (for glow animation)
      */
     renderDemons(ctx, agents, time) {
-        // Standard agent radius (4 pixels, same as regular agents)
-        const radius = 4;
+        // Standard agent radius (6 pixels, same as regular agents)
+        const radius = 6;
         
         // Brick red color: hsl(0, 60%, 40%)
         const demonColor = 'hsl(0, 60%, 40%)';
@@ -677,8 +677,8 @@ export class HeroLogic {
         }
         
         const hero = agents[this.heroIndex];
-        const HERO_RADIUS = 4;
-        const TARGET_RADIUS = 4;
+        const HERO_RADIUS = 6;
+        const TARGET_RADIUS = 6;
         const COLLISION_DISTANCE = HERO_RADIUS + TARGET_RADIUS;
         
         // Check collision with all active targets (targets are agents in the swarm)
@@ -774,8 +774,8 @@ export class HeroLogic {
         }
         
         const hero = agents[this.heroIndex];
-        const HERO_RADIUS = 4;
-        const DEMON_RADIUS = 4;
+        const HERO_RADIUS = 6;
+        const DEMON_RADIUS = 6;
         const COLLISION_DISTANCE = HERO_RADIUS + DEMON_RADIUS;
         
         // Check collision with all demons

@@ -127,7 +127,7 @@ export class Agent {
         // Draw the agent body as a filled circle (proportional to canvas size)
         ctx.fillStyle = this.color;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, 4, 0, 2 * Math.PI);
+        ctx.arc(this.x, this.y, 6, 0, 2 * Math.PI);
         ctx.fill();
     }
 }
