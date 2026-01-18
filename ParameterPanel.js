@@ -495,6 +495,44 @@ export class ParameterPanel {
             }
         });
         
+        // Preset selector buttons (dev mode only) - SET UP FIRST before other listeners
+        console.log('Checking preset buttons setup:', { isDevMode: this.isDevMode, hasCallback: !!this.presetCallback });
+        if (this.isDevMode && this.presetCallback) {
+            // Use a small delay to ensure DOM is ready
+            setTimeout(() => {
+                const presetButtons = document.querySelectorAll('.preset-btn[data-preset-index]');
+                console.log('Found preset buttons:', presetButtons.length);
+                if (presetButtons.length === 0) {
+                    console.error('No preset buttons found in DOM!');
+                    // Try finding them in the panel
+                    const panel = document.getElementById('parameter-panel');
+                    if (panel) {
+                        const buttonsInPanel = panel.querySelectorAll('.preset-btn[data-preset-index]');
+                        console.log('Buttons in panel:', buttonsInPanel.length);
+                    }
+                }
+                presetButtons.forEach((btn, index) => {
+                    console.log(`Attaching listener to button ${index}:`, btn.textContent, btn.dataset.presetIndex);
+                    // Remove any existing listeners first
+                    const newBtn = btn.cloneNode(true);
+                    btn.parentNode.replaceChild(newBtn, btn);
+                    newBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const presetIndex = parseInt(newBtn.dataset.presetIndex);
+                        console.log('Preset button clicked! Index:', presetIndex);
+                        if (!isNaN(presetIndex) && this.presetCallback) {
+                            this.presetCallback(presetIndex);
+                        } else {
+                            console.error('Invalid preset index or no callback:', { presetIndex, hasCallback: !!this.presetCallback });
+                        }
+                    });
+                });
+            }, 10);
+        } else {
+            console.log('Preset buttons not set up:', { isDevMode: this.isDevMode, hasCallback: !!this.presetCallback });
+        }
+        
         if (this.isDevMode) {
             // Dev mode: text inputs with blur/change events
             this.setupDevModeListeners();
@@ -692,41 +730,6 @@ export class ParameterPanel {
                     this.maxStaminaCallback(value);
                 }
             });
-        }
-        
-        // Preset selector buttons (dev mode only)
-        console.log('Checking preset buttons setup:', { isDevMode: this.isDevMode, hasCallback: !!this.presetCallback });
-        if (this.isDevMode && this.presetCallback) {
-            // Use a small delay to ensure DOM is ready
-            setTimeout(() => {
-                const presetButtons = document.querySelectorAll('.preset-btn[data-preset-index]');
-                console.log('Found preset buttons:', presetButtons.length);
-                if (presetButtons.length === 0) {
-                    console.error('No preset buttons found in DOM!');
-                    // Try finding them in the panel
-                    const panel = document.getElementById('parameter-panel');
-                    if (panel) {
-                        const buttonsInPanel = panel.querySelectorAll('.preset-btn[data-preset-index]');
-                        console.log('Buttons in panel:', buttonsInPanel.length);
-                    }
-                }
-                presetButtons.forEach((btn, index) => {
-                    console.log(`Attaching listener to button ${index}:`, btn.textContent, btn.dataset.presetIndex);
-                    btn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const presetIndex = parseInt(e.target.dataset.presetIndex || e.target.closest('.preset-btn')?.dataset.presetIndex);
-                        console.log('Preset button clicked! Index:', presetIndex);
-                        if (!isNaN(presetIndex) && this.presetCallback) {
-                            this.presetCallback(presetIndex);
-                        } else {
-                            console.error('Invalid preset index or no callback:', { presetIndex, hasCallback: !!this.presetCallback });
-                        }
-                    });
-                });
-            }, 10);
-        } else {
-            console.log('Preset buttons not set up:', { isDevMode: this.isDevMode, hasCallback: !!this.presetCallback });
         }
         
         // Preset buttons for J and K (player mode only)
