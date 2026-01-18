@@ -48,6 +48,10 @@ let heroLogic = null;
 // Flag to control energy curve visibility
 let showEnergyCurve = false;
 
+// Game mode and preset tracking (module scope for access in updatePhysics)
+let isDevMode = false;
+let currentPresetIndex = null;
+
 // Timing for frame-rate independent physics
 let lastTime = 0;
 let simulationStartTime = 0;
@@ -470,10 +474,10 @@ function applyPlayerPreset() {
 try {
     // Detect game mode
     const gameMode = getGameMode();
-    const isDevMode = gameMode === 'dev';
+    isDevMode = gameMode === 'dev';
     
     // Track current preset index (global for stage progression)
-    let currentPresetIndex = null;
+    currentPresetIndex = null;
     if (!isDevMode) {
         currentPresetIndex = applyPlayerPreset();
     }
