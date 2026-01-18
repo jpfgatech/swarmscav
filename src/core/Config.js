@@ -9,6 +9,12 @@
 
 export const Config = {
     // ============================================================================
+    // Viewport (Logical Resolution)
+    // ============================================================================
+    LOGICAL_WIDTH: 1000, // Logical coordinate system width (virtual resolution)
+    LOGICAL_HEIGHT: 1000, // Logical coordinate system height (virtual resolution)
+    
+    // ============================================================================
     // Agent Population
     // ============================================================================
     N: 100, // Number of agents

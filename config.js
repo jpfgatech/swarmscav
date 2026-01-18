@@ -9,6 +9,8 @@
 import { Config } from './src/core/Config.js';
 
 // Re-export all config values directly (no URL parameter parsing)
+export const LOGICAL_WIDTH = Config.LOGICAL_WIDTH;
+export const LOGICAL_HEIGHT = Config.LOGICAL_HEIGHT;
 export const N = Config.N;
 export const BASE_OMEGA = Config.BASE_OMEGA;
 export const OMEGA_VARIATION = Config.OMEGA_VARIATION;

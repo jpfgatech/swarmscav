@@ -3,12 +3,15 @@ import { EnergyMonitor } from './EnergyMonitor.js';
 import { HeroLogic } from './HeroLogic.js';
 import {
     N,
+    LOGICAL_WIDTH,
+    LOGICAL_HEIGHT,
     ENERGY_THRESHOLD_PER_AGENT,
     ENERGY_KILL_FRAMES,
     ENABLE_AUTO_KILL
 } from './config.js';
 import { RuntimeConfig, updateRuntimeConfig } from './runtimeConfig.js';
 import { ParameterPanel } from './ParameterPanel.js';
+import { ViewportManager } from './ViewportManager.js';
 
 // Canvas setup - wait for DOM to be ready
 let canvas, ctx;
@@ -33,6 +36,22 @@ function setupCanvas() {
 
 // Setup canvas immediately (module scripts run after DOM is parsed)
 setupCanvas();
+
+// Viewport manager for cross-platform scaling
+const viewportManager = new ViewportManager(LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+// Initialize viewport on load
+function updateViewport() {
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    canvas.width = screenWidth;
+    canvas.height = screenHeight;
+    viewportManager.resize(screenWidth, screenHeight);
+}
+
+// Update viewport on window resize
+window.addEventListener('resize', updateViewport);
+updateViewport(); // Initial viewport setup
 
 // State: array of agents
 const swarm = [];
@@ -71,8 +90,11 @@ function initialize() {
     
     // Create agents (hero + targets + regular agents)
     // Hero is at index 0, targets are at indices 1-10
+    // Use logical dimensions for agent initialization (physics uses logical coordinates)
+    const logicalWidth = viewportManager.getLogicalWidth();
+    const logicalHeight = viewportManager.getLogicalHeight();
     for (let i = 0; i < currentN; i++) {
-        swarm.push(new Agent(canvas.width, canvas.height, RuntimeConfig.BASE_OMEGA, RuntimeConfig.OMEGA_VARIATION));
+        swarm.push(new Agent(logicalWidth, logicalHeight, RuntimeConfig.BASE_OMEGA, RuntimeConfig.OMEGA_VARIATION));
     }
     
     // Calculate and subtract center of mass (position)
@@ -105,12 +127,12 @@ function initialize() {
         agent.vy -= meanVy;
     }
     
-    // Re-center positions to canvas center
-    const canvasCenterX = canvas.width / 2;
-    const canvasCenterY = canvas.height / 2;
+    // Re-center positions to logical coordinate center
+    const logicalCenterX = viewportManager.getLogicalWidth() / 2;
+    const logicalCenterY = viewportManager.getLogicalHeight() / 2;
     for (const agent of swarm) {
-        agent.x += canvasCenterX;
-        agent.y += canvasCenterY;
+        agent.x += logicalCenterX;
+        agent.y += logicalCenterY;
     }
     
     console.log(`Initialized ${swarm.length} agents (centered)`);
@@ -226,8 +248,9 @@ function applyPhaseCoupling(agent1, agent2, distance) {
  * @param {number} realDeltaTime - Real time step in seconds (unscaled, for stamina system)
  */
 function updatePhysics(deltaTime, realDeltaTime) {
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
+    // Use logical coordinates for physics calculations
+    const centerX = viewportManager.getLogicalWidth() / 2;
+    const centerY = viewportManager.getLogicalHeight() / 2;
     
     // Reset all accelerations and phase derivatives
     for (const agent of swarm) {
@@ -265,19 +288,25 @@ function updatePhysics(deltaTime, realDeltaTime) {
     }
     
     // Integrate: update positions, velocities, and phases
+    // Use logical dimensions for boundary wrapping
+    const logicalWidth = viewportManager.getLogicalWidth();
+    const logicalHeight = viewportManager.getLogicalHeight();
     for (const agent of swarm) {
-        agent.update(deltaTime, canvas.width, canvas.height);
+        agent.update(deltaTime, logicalWidth, logicalHeight);
     }
     
     // Hero anchor override (runs AFTER physics update)
     // Use realDeltaTime for stamina system (should be in real seconds, not scaled)
+    // Use logical dimensions for game logic
+    const logicalWidth = viewportManager.getLogicalWidth();
+    const logicalHeight = viewportManager.getLogicalHeight();
     if (heroLogic) {
-        heroLogic.update(swarm, realDeltaTime, canvas.width, canvas.height);
+        heroLogic.update(swarm, realDeltaTime, logicalWidth, logicalHeight);
         
         // Check win condition: Hero collects all targets
         // Only pause when ALL targets are collected (game won)
         // Individual target collection does not pause the game
-        if (heroLogic.checkWinCondition(swarm, canvas.width, canvas.height)) {
+        if (heroLogic.checkWinCondition(swarm, logicalWidth, logicalHeight)) {
             // Check if we haven't already triggered stage progression
             if (window.GAME_STATE !== 'STAGE_CLEARED' && window.GAME_STATE !== 'REBOOTING') {
                 window.SIMULATION_PAUSED = true;
@@ -299,7 +328,7 @@ function updatePhysics(deltaTime, realDeltaTime) {
         }
         
         // Check game over condition: Hero collides with demon
-        if (heroLogic.checkDemonCollision(swarm, canvas.width, canvas.height)) {
+        if (heroLogic.checkDemonCollision(swarm, logicalWidth, logicalHeight)) {
             window.SIMULATION_PAUSED = true;
             window.GAME_STATE = 'LOST';
             console.log('Game over: Hero collided with demon!');
@@ -368,6 +397,11 @@ function render(currentTime) {
         return;
     }
     
+    // Apply viewport transform: translate and scale for logical-to-screen projection
+    ctx.save();
+    ctx.translate(viewportManager.getOffsetX(), viewportManager.getOffsetY());
+    ctx.scale(viewportManager.getScale(), viewportManager.getScale());
+    
     // Update colors for all agents (including hero)
     for (const agent of swarm) {
         agent.updateColor();
@@ -397,17 +431,21 @@ function render(currentTime) {
         swarm[i].draw(ctx);
     }
     
-    // Render stamina bar (on top of simulation, before hero/target)
-    if (heroLogic) {
-        heroLogic.renderStaminaBar(ctx, canvas.width, canvas.height);
-    }
-    
-    // Render hero, targets, and demons (glows already rendered above)
+    // Render hero, targets, and demons (game objects in logical space)
     if (heroLogic) {
         const currentTimeSeconds = (performance.now() - simulationStartTime) / 1000;
         heroLogic.renderHero(ctx, swarm, currentTimeSeconds);
         heroLogic.renderTarget(ctx, swarm, currentTimeSeconds);
         heroLogic.renderDemons(ctx, swarm, currentTimeSeconds);
+    }
+    
+    // Restore viewport transform (draw UI elements in screen space)
+    ctx.restore();
+    
+    // Render UI elements in screen space (after transform restore)
+    // Render stamina bar (on top of simulation)
+    if (heroLogic) {
+        heroLogic.renderStaminaBar(ctx, canvas.width, canvas.height);
         
         // Render HUD in corner (lives, targets, demons)
         heroLogic.renderHUD(ctx, canvas.width, canvas.height);
@@ -654,11 +692,16 @@ try {
             // Get touch position relative to canvas
             const rect = canvas.getBoundingClientRect();
             const touch = e.touches[0];
-            const touchX = touch.clientX - rect.left;
-            const canvasWidth = canvas.width;
+            const screenX = touch.clientX - rect.left;
+            const screenY = touch.clientY - rect.top;
+            
+            // Unproject screen coordinates to logical coordinates
+            const logicalPos = viewportManager.unproject(screenX, screenY);
+            const logicalWidth = viewportManager.getLogicalWidth();
             
             // Determine which side was touched (left half = Channel A, right half = Channel B)
-            if (touchX < canvasWidth / 2) {
+            // Use logical coordinates for consistency
+            if (logicalPos.x < logicalWidth / 2) {
                 // Left side: Channel A (Hero)
                 const heroIndex = heroLogic.getHeroIndex();
                 if (heroIndex < swarm.length) {
