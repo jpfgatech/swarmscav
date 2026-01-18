@@ -297,9 +297,7 @@ function updatePhysics(deltaTime, realDeltaTime) {
     
     // Hero anchor override (runs AFTER physics update)
     // Use realDeltaTime for stamina system (should be in real seconds, not scaled)
-    // Use logical dimensions for game logic
-    const logicalWidth = viewportManager.getLogicalWidth();
-    const logicalHeight = viewportManager.getLogicalHeight();
+    // Use logical dimensions for game logic (reuse variables from above)
     if (heroLogic) {
         heroLogic.update(swarm, realDeltaTime, logicalWidth, logicalHeight);
         
