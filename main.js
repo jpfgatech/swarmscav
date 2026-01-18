@@ -541,6 +541,13 @@ try {
             RuntimeConfig.TIME_SCALE = preset.TIME_SCALE;
         }
         
+        // Reset simulation state
+        window.SIMULATION_PAUSED = false;
+        window.GAME_STATE = null;
+        
+        // Reinitialize swarm with new preset
+        initialize();
+        
         // Update panel to reflect new values
         if (parameterPanel) {
             parameterPanel.updateFromConfig(RuntimeConfig);
