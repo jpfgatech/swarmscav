@@ -696,20 +696,19 @@ export class ParameterPanel {
         
         // Preset selector buttons (dev mode only)
         if (this.isDevMode && this.presetCallback) {
-            document.querySelectorAll('.preset-btn[data-preset-index]').forEach(btn => {
+            const presetButtons = document.querySelectorAll('.preset-btn[data-preset-index]');
+            console.log('Setting up preset buttons:', presetButtons.length);
+            presetButtons.forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const presetIndex = parseInt(e.target.dataset.presetIndex);
+                    console.log('Preset button clicked:', presetIndex);
                     if (this.presetCallback) {
                         this.presetCallback(presetIndex);
-                        // Update panel values after preset is applied
-                        setTimeout(() => {
-                            if (this.configUpdater) {
-                                // Panel will be updated by caller
-                            }
-                        }, 10);
                     }
                 });
             });
+        } else {
+            console.log('Preset buttons not set up:', { isDevMode: this.isDevMode, hasCallback: !!this.presetCallback });
         }
         
         // Preset buttons for J and K (player mode only)

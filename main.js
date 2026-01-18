@@ -545,12 +545,13 @@ try {
         window.SIMULATION_PAUSED = false;
         window.GAME_STATE = null;
         
-        // Reinitialize swarm with new preset
+        // Reinitialize swarm with new preset (restart simulation)
         initialize();
         
-        // Update panel to reflect new values
+        // Update panel to reflect new values (this updates the input fields)
         if (parameterPanel) {
             parameterPanel.updateFromConfig(RuntimeConfig);
+            console.log('Panel updated with preset values:', { J: RuntimeConfig.J, K: RuntimeConfig.K, TIME_SCALE: RuntimeConfig.TIME_SCALE });
         }
     }
     
