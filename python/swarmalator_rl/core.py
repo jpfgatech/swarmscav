@@ -163,19 +163,11 @@ class SwarmCore:
         pos_expanded_i = self.agents_pos[:, np.newaxis, :]  # Shape: (N, 1, 2)
         pos_expanded_j = self.agents_pos[np.newaxis, :, :]  # Shape: (1, N, 2)
         
-        # Calculate toroidal distances for all pairs
-        # We need to do this element-wise for toroidal wrapping
-        # Use broadcasting to compute all pairs
+        # Calculate distances for all pairs
+        # NOTE: Match main.js behavior - NO toroidal wrapping in force calculations
+        # Positions wrap at boundaries (in step()), but forces use straight-line distances
         dx = pos_expanded_j[..., 0] - pos_expanded_i[..., 0]  # Shape: (N, N)
         dy = pos_expanded_j[..., 1] - pos_expanded_i[..., 1]  # Shape: (N, N)
-        
-        # Apply toroidal wrapping
-        dx = np.where(np.abs(dx) > self.LOGICAL_WIDTH / 2,
-                     np.where(dx > 0, dx - self.LOGICAL_WIDTH, dx + self.LOGICAL_WIDTH),
-                     dx)
-        dy = np.where(np.abs(dy) > self.LOGICAL_HEIGHT / 2,
-                     np.where(dy > 0, dy - self.LOGICAL_HEIGHT, dy + self.LOGICAL_HEIGHT),
-                     dy)
         
         # Distance matrix
         distance_sq = dx * dx + dy * dy  # Shape: (N, N)
