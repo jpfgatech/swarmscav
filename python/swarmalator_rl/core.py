@@ -33,15 +33,18 @@ class SwarmCore:
     LOGICAL_HEIGHT = 1000.0
     DT = 0.05 * TIME_SCALE  # Scaled time step (2.5 seconds per frame)
     
-    def __init__(self, seed: int = 12345):
+    def __init__(self, seed: int = 12345, dtype: np.dtype = np.float64):
         """
         Initialize the SwarmCore.
         
         Args:
             seed: Random seed for deterministic initialization
+            dtype: NumPy dtype for all arrays (default: float64 for parity testing, 
+                   use float32 for RL training efficiency)
         """
         self.seed = seed
         self.rng = np.random.RandomState(seed)
+        self.dtype = dtype  # Store dtype for use in reset() and throughout
         
         # State arrays (shape: (N, 2) for positions/velocities, (N,) for phases)
         self.agents_pos: np.ndarray = None  # Shape: (N, 2)
@@ -72,21 +75,22 @@ class SwarmCore:
             self.rng = np.random.RandomState(seed)
         
         # Initialize positions randomly
+        # NOTE: dtype can be float64 (for parity testing) or float32 (for RL training efficiency)
         self.agents_pos = self.rng.uniform(
             low=[0, 0],
             high=[self.LOGICAL_WIDTH, self.LOGICAL_HEIGHT],
             size=(self.N, 2)
-        ).astype(np.float32)
+        ).astype(self.dtype)
         
         # Initialize phases randomly
         self.agents_phase = self.rng.uniform(
             low=0.0,
             high=2 * np.pi,
             size=self.N
-        ).astype(np.float32)
+        ).astype(self.dtype)
         
         # Initialize velocities to zero (overdamped model)
-        self.agents_vel = np.zeros((self.N, 2), dtype=np.float32)
+        self.agents_vel = np.zeros((self.N, 2), dtype=self.dtype)
         
         # Initialize natural frequencies
         omega_base = self.BASE_OMEGA
@@ -94,7 +98,7 @@ class SwarmCore:
         self.agents_omega = np.full(
             self.N,
             omega_base + self.rng.uniform(-omega_var, omega_var, size=self.N),
-            dtype=np.float32
+            dtype=self.dtype
         )
         
         # Re-center positions (subtract center of mass)
@@ -106,12 +110,12 @@ class SwarmCore:
         self.agents_vel -= mean_vel
         
         # Re-center to logical coordinate center
-        logical_center = np.array([self.LOGICAL_WIDTH / 2, self.LOGICAL_HEIGHT / 2], dtype=np.float32)
+        logical_center = np.array([self.LOGICAL_WIDTH / 2, self.LOGICAL_HEIGHT / 2], dtype=self.dtype)
         self.agents_pos += logical_center
         
         # Initialize force arrays
-        self.agents_force = np.zeros((self.N, 2), dtype=np.float32)
-        self.agents_phase_derivative = np.zeros(self.N, dtype=np.float32)
+        self.agents_force = np.zeros((self.N, 2), dtype=self.dtype)
+        self.agents_phase_derivative = np.zeros(self.N, dtype=self.dtype)
         
         # Reset action state
         self.prev_action = 0
@@ -148,6 +152,9 @@ class SwarmCore:
     def _calculate_forces(self):
         """
         Calculate all forces using vectorized NumPy operations.
+        
+        NOTE: Uses self.dtype (float64 for parity testing, float32 for RL training).
+        Floating point addition is not associative, so this may differ from JS sequential order.
         
         Updates:
             - self.agents_force: Net force on each agent
@@ -222,7 +229,25 @@ class SwarmCore:
         
         # ===== Phase Coupling (K term) =====
         # dθ/dt = K * sin(θ_j - θ_i) / distance / N
-        phase_coupling = self.K * np.sin(phase_diff) * inv_distance / self.N  # Shape: (N, N)
+        # CRITICAL: Skip phase coupling for very close pairs (matching main.js line 228)
+        # For distance < 0.001, inv_distance would be huge (>1000), causing numerical instability
+        # 
+        # NOTE: The mask already excludes self-interactions and distance_sq < 1e-6 pairs
+        # But we need an ADDITIONAL explicit check for distance < 0.001 for phase coupling
+        # (matching JS: if (distance < 0.001) return;)
+        # This ensures we skip phase coupling even if floating point precision causes
+        # distance_sq >= 1e-6 but distance < 0.001
+        # 
+        # IMPORTANT: We must use the ORIGINAL distance (before mask sets it to np.inf)
+        # to properly check distance < 0.001. So we check against the unmasked distance.
+        # For masked pairs, inv_distance is already 0.0, so phase coupling will be 0 anyway.
+        # But we explicitly exclude them from the mask to be safe.
+        phase_coupling_mask = (~mask) & (distance >= 0.001)  # Exclude masked pairs AND ensure distance >= 0.001
+        phase_coupling = np.where(
+            phase_coupling_mask,
+            self.K * np.sin(phase_diff) * inv_distance / self.N,  # Normal calculation
+            0.0  # Skip for very close pairs (matching JS behavior)
+        )  # Shape: (N, N)
         
         # Sum over j to get net phase derivative for each i
         self.agents_phase_derivative += np.sum(phase_coupling, axis=1)
