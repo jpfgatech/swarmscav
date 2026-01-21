@@ -194,18 +194,23 @@ function updatePhysics(swarm, deltaTime, action, prevAction) {
     }
     
     // Calculate forces (pairwise interactions)
+    // NOTE: Match main.js behavior - NO toroidal wrapping in force calculations
+    // Positions wrap at boundaries, but forces use straight-line distances
     for (let i = 0; i < swarm.length; i++) {
         for (let j = i + 1; j < swarm.length; j++) {
-            const { dx: dxAttract, dy: dyAttract, distance, distanceSquared } = 
-                toroidalDistance(swarm[i].x, swarm[i].y, swarm[j].x, swarm[j].y, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+            // Direct distance calculation (matching main.js lines 266-269)
+            const dxAttract = swarm[j].x - swarm[i].x; // For attraction (agent1 -> agent2)
+            const dyAttract = swarm[j].y - swarm[i].y;
+            const dxRepel = swarm[i].x - swarm[j].x;   // For repulsion (agent1 <- agent2)
+            const dyRepel = swarm[i].y - swarm[j].y;
+            const distanceSquared = dxAttract * dxAttract + dyAttract * dyAttract;
             
             // Skip if too close (numerical stability)
             if (distanceSquared < 0.000001) {
                 continue;
             }
             
-            const dxRepel = -dxAttract;
-            const dyRepel = -dyAttract;
+            const distance = Math.sqrt(distanceSquared);
             
             // Apply forces
             applyRepulsionForce(swarm[i], swarm[j], dxRepel, dyRepel, distanceSquared);
