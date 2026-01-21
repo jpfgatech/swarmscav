@@ -164,7 +164,24 @@ function applyPhaseCoupling(agent1, agent2, distance) {
 // ============================================================================
 // Physics Update
 // ============================================================================
-function updatePhysics(swarm, deltaTime, action) {
+// Track previous positions for action application (persists across frames)
+const prevPositions = new Map();
+
+function updatePhysics(swarm, deltaTime, action, prevAction) {
+    // Update previous positions when action changes or becomes inactive
+    // Store positions at the START of an action (when action becomes active)
+    if (prevAction !== action) {
+        // Action changed - store current positions as "previous" for new action
+        if (action === 1 || action === 3) {
+            prevPositions.set(0, { x: swarm[0].x, y: swarm[0].y });
+        }
+        if (action === 2 || action === 3) {
+            for (let i = 1; i <= 10 && i < swarm.length; i++) {
+                prevPositions.set(i, { x: swarm[i].x, y: swarm[i].y });
+            }
+        }
+    }
+    
     // Reset accelerations and phase derivatives
     for (const agent of swarm) {
         agent.ax = 0;
@@ -193,29 +210,43 @@ function updatePhysics(swarm, deltaTime, action) {
         }
     }
     
-    // Apply actions: zero out velocities for affected agents
+    // Integrate: update positions and phases FIRST
+    for (const agent of swarm) {
+        agent.update(deltaTime, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+    }
+    
+    // Apply actions AFTER integration (matching JS behavior)
     // Action 0: No-op (do nothing)
     // Action 1: Hold Hero (index 0)
     // Action 2: Hold Targets (indices 1-10)
     // Action 3: Hold Both (Hero + Targets)
     
     if (action === 1 || action === 3) {
-        // Hold Hero
+        // Hold Hero: reset to previous position and zero velocity
+        const prevPos = prevPositions.get(0);
+        if (prevPos) {
+            swarm[0].x = prevPos.x;
+            swarm[0].y = prevPos.y;
+        }
         swarm[0].vx = 0;
         swarm[0].vy = 0;
+        swarm[0].ax = 0;  // Also zero acceleration for next frame
+        swarm[0].ay = 0;
     }
     
     if (action === 2 || action === 3) {
-        // Hold Targets (indices 1-10)
+        // Hold Targets: reset to previous positions and zero velocities
         for (let i = 1; i <= 10 && i < swarm.length; i++) {
+            const prevPos = prevPositions.get(i);
+            if (prevPos) {
+                swarm[i].x = prevPos.x;
+                swarm[i].y = prevPos.y;
+            }
             swarm[i].vx = 0;
             swarm[i].vy = 0;
+            swarm[i].ax = 0;
+            swarm[i].ay = 0;
         }
-    }
-    
-    // Integrate: update positions and phases
-    for (const agent of swarm) {
-        agent.update(deltaTime, LOGICAL_WIDTH, LOGICAL_HEIGHT);
     }
 }
 
@@ -273,11 +304,17 @@ function initialize() {
 // ============================================================================
 // Get Action for Frame
 // ============================================================================
+// Action sequence adjusted for stamina limits:
+// - Max stamina = 2.0 seconds
+// - dt = 0.05 seconds per frame
+// - Stamina lasts 40 frames (2.0 / 0.05 = 40)
+// - Use 40 frames per action to stay within stamina limit
 function getActionForFrame(frame) {
-    if (frame <= 50) return 0;
-    if (frame <= 100) return 1;
-    if (frame <= 150) return 2;
-    return 3;
+    if (frame <= 40) return 0;      // Frames 0-40: No-op (2.0 seconds)
+    if (frame <= 80) return 1;     // Frames 41-80: Hold Hero (2.0 seconds, exactly at stamina limit)
+    if (frame <= 120) return 2;    // Frames 81-120: Hold Targets (2.0 seconds)
+    if (frame <= 160) return 3;    // Frames 121-160: Hold Both (2.0 seconds)
+    return 0;                       // Frames 161-200: No-op (recovery period)
 }
 
 // ============================================================================
@@ -313,13 +350,16 @@ function main() {
     trace.push(exportState(swarm, 0));
     
     // Run simulation for 200 frames
+    // Note: Action sequence uses 40-frame segments to respect 2.0s stamina limit
+    let prevAction = 0;
     for (let frame = 1; frame <= 200; frame++) {
         const action = getActionForFrame(frame);
-        updatePhysics(swarm, DT, action);
+        updatePhysics(swarm, DT, action, prevAction);
+        prevAction = action;
         trace.push(exportState(swarm, frame));
         
-        if (frame % 50 === 0) {
-            console.log(`Frame ${frame}/200 completed`);
+        if (frame % 40 === 0) {
+            console.log(`Frame ${frame}/200 completed (Action ${action})`);
         }
     }
     
