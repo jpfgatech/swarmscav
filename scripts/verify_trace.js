@@ -42,9 +42,9 @@ try {
 }
 console.log('✅ PASS: Valid JSON format');
 
-// Check 3: Correct number of frames
-if (trace.length !== 201) {
-    console.error(`❌ FAIL: Expected 201 frames, got ${trace.length}`);
+// Check 3: Correct number of frames (280 frames = 7 stages × 40 frames)
+if (trace.length !== 281) {
+    console.error(`❌ FAIL: Expected 281 frames (0-280), got ${trace.length}`);
     process.exit(1);
 }
 console.log(`✅ PASS: Correct number of frames (${trace.length})`);
@@ -152,42 +152,44 @@ console.log('\n' + '='.repeat(60));
 console.log('Action Sequence Verification:');
 console.log('='.repeat(60));
 
-// Action sequence: 0 (0-40) -> 1 (41-80) -> 0 (81-120) -> 2 (121-160) -> 0 (161-200)
+// Action sequence: 0 (0-40) -> 1 (41-80) -> 0 (81-120) -> 2 (121-160) -> 0 (161-200) -> 3 (201-240) -> 0 (241-280)
+// Total: 7 stages (4 Action 0, 1 Action 1, 1 Action 2, 1 Action 3)
 
-// Frames 0-40: Action 0 (No-op) - Hero should move
-const heroPos0 = trace[0].hero_pos;
-const heroPos40 = trace[40].hero_pos;
-const dist0to40 = Math.sqrt(
-    Math.pow(heroPos40[0] - heroPos0[0], 2) + 
-    Math.pow(heroPos40[1] - heroPos0[1], 2)
-);
-console.log(`Frames 0-40 (Action 0: No-op): Hero moved ${dist0to40.toFixed(2)} pixels`);
-
-// Frames 41-80: Action 1 (Hold Hero) - Hero should be frozen
-const heroPos41 = trace[41].hero_pos;
-const heroPos80 = trace[80].hero_pos;
-const dist41to80 = Math.sqrt(
-    Math.pow(heroPos80[0] - heroPos41[0], 2) + 
-    Math.pow(heroPos80[1] - heroPos41[1], 2)
-);
-console.log(`Frames 41-80 (Action 1: Hold Hero): Hero moved ${dist41to80.toFixed(6)} pixels (should be ~0)`);
-
-if (dist41to80 < 0.001) {
-    console.log('✅ PASS: Hero is frozen during Action 1');
-} else if (dist41to80 < 0.01) {
-    console.log('✅ PASS: Hero is effectively frozen (movement < 0.01 pixels, likely numerical precision)');
-} else {
-    console.warn('⚠️  WARN: Hero should be frozen during Action 1, but moved significantly');
+function checkMovement(trace, startFrame, endFrame, actionName, shouldBeFrozen = false) {
+    const startPos = trace[startFrame].hero_pos;
+    const endPos = trace[endFrame].hero_pos;
+    const dist = Math.sqrt(
+        Math.pow(endPos[0] - startPos[0], 2) + 
+        Math.pow(endPos[1] - startPos[1], 2)
+    );
+    
+    console.log(`Frames ${startFrame}-${endFrame} (${actionName}): Hero moved ${dist.toFixed(6)} pixels`);
+    
+    if (shouldBeFrozen) {
+        if (dist < 0.001) {
+            console.log(`  ✅ PASS: Hero is frozen`);
+        } else if (dist < 0.01) {
+            console.log(`  ✅ PASS: Hero is effectively frozen (movement < 0.01 pixels, likely numerical precision)`);
+        } else {
+            console.warn(`  ⚠️  WARN: Hero should be frozen but moved ${dist.toFixed(4)} pixels`);
+        }
+    } else {
+        if (dist > 0.01) {
+            console.log(`  ✅ PASS: Hero is moving`);
+        } else {
+            console.warn(`  ⚠️  WARN: Hero should be moving but only moved ${dist.toFixed(6)} pixels`);
+        }
+    }
 }
 
-// Frames 81-120: Action 0 (No-op, recovery) - Hero should move again
-const heroPos81 = trace[81].hero_pos;
-const heroPos120 = trace[120].hero_pos;
-const dist81to120 = Math.sqrt(
-    Math.pow(heroPos120[0] - heroPos81[0], 2) + 
-    Math.pow(heroPos120[1] - heroPos81[1], 2)
-);
-console.log(`Frames 81-120 (Action 0: No-op, recovery): Hero moved ${dist81to120.toFixed(2)} pixels`);
+// Check all 7 stages
+checkMovement(trace, 0, 40, 'Action 0: No-op (initial)', false);
+checkMovement(trace, 41, 80, 'Action 1: Hold Hero', true);
+checkMovement(trace, 81, 120, 'Action 0: No-op (recovery 1)', false);
+checkMovement(trace, 121, 160, 'Action 2: Hold Targets', false); // Targets frozen, hero moves
+checkMovement(trace, 161, 200, 'Action 0: No-op (recovery 2)', false);
+checkMovement(trace, 201, 240, 'Action 3: Hold Both', true); // Both hero and targets frozen
+checkMovement(trace, 241, 280, 'Action 0: No-op (recovery 3)', false);
 
 // Check file size
 const fileSize = fs.statSync(tracePath).size;

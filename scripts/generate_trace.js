@@ -304,7 +304,7 @@ function initialize() {
 // ============================================================================
 // Get Action for Frame
 // ============================================================================
-// Action sequence with recovery periods:
+// Action sequence with recovery periods (tests all 4 actions):
 // - Action 0: No-Op (Release all)
 // - Action 1: Hold Hero
 // - Action 2: Hold Targets
@@ -313,13 +313,15 @@ function initialize() {
 // - dt = 0.05 seconds per frame
 // - Stamina lasts 40 frames (2.0 / 0.05 = 40)
 // - Use 40 frames per action, with 40-frame recovery (Action 0) between actions
+// Sequence: 0 -> 1 -> 0 -> 2 -> 0 -> 3 -> 0 (7 stages total, 280 frames)
 function getActionForFrame(frame) {
     if (frame <= 40) return 0;      // Frames 0-40: No-op (initial)
     if (frame <= 80) return 1;      // Frames 41-80: Hold Hero (2.0 seconds)
     if (frame <= 120) return 0;     // Frames 81-120: No-op (recovery)
     if (frame <= 160) return 2;     // Frames 121-160: Hold Targets (2.0 seconds)
     if (frame <= 200) return 0;     // Frames 161-200: No-op (recovery)
-    return 0;
+    if (frame <= 240) return 3;     // Frames 201-240: Hold Both (2.0 seconds)
+    return 0;                        // Frames 241-280: No-op (recovery)
 }
 
 // ============================================================================
@@ -354,12 +356,12 @@ function main() {
     // Export initial state (frame 0)
     trace.push(exportState(swarm, 0));
     
-    // Run simulation for 200 frames
-    // Action sequence: 0 (40f) -> 1 (40f) -> 0 (40f) -> 2 (40f) -> 0 (40f)
+    // Run simulation for 280 frames (7 stages: 0->1->0->2->0->3->0)
     // Each action segment is 40 frames (2.0 seconds) to respect stamina limit
     // Recovery periods (Action 0) allow stamina to regenerate
+    const TOTAL_FRAMES = 280;
     let prevAction = 0;
-    for (let frame = 1; frame <= 200; frame++) {
+    for (let frame = 1; frame <= TOTAL_FRAMES; frame++) {
         const action = getActionForFrame(frame);
         updatePhysics(swarm, DT, action, prevAction);
         prevAction = action;
@@ -367,7 +369,7 @@ function main() {
         
         if (frame % 40 === 0) {
             const actionName = ['No-op', 'Hold Hero', 'Hold Targets', 'Hold Both'][action];
-            console.log(`Frame ${frame}/200 completed (Action ${action}: ${actionName})`);
+            console.log(`Frame ${frame}/${TOTAL_FRAMES} completed (Action ${action}: ${actionName})`);
         }
     }
     
