@@ -81,11 +81,10 @@ class Agent {
         while (this.theta < 0) this.theta += 2 * Math.PI;
         while (this.theta >= 2 * Math.PI) this.theta -= 2 * Math.PI;
         
-        // Toroidal boundary wrapping
-        if (this.x < 0) this.x += canvasWidth;
-        if (this.x >= canvasWidth) this.x -= canvasWidth;
-        if (this.y < 0) this.y += canvasHeight;
-        if (this.y >= canvasHeight) this.y -= canvasHeight;
+        // Toroidal boundary wrapping (handle multiple wraps correctly)
+        // Use modulo to handle cases where agent moves more than one width/height in a single frame
+        this.x = ((this.x % canvasWidth) + canvasWidth) % canvasWidth;
+        this.y = ((this.y % canvasHeight) + canvasHeight) % canvasHeight;
         
         // Reset for next frame
         this.ax = 0;
