@@ -25,7 +25,11 @@ const BASE_OMEGA = 0.1;
 const OMEGA_VARIATION = 0.0;
 const LOGICAL_WIDTH = 1000;
 const LOGICAL_HEIGHT = 1000;
-const DT = 0.05; // Fixed time step
+// Time step: Use scaled time to match JS behavior
+// JS uses: deltaTime = rawDeltaTime * TIME_SCALE = 0.0333 * 50 = 1.67
+// For deterministic trace, use: dt = 0.05 * TIME_SCALE = 2.5
+// This matches the physics time scale used in JS
+const DT = 0.05 * TIME_SCALE; // Scaled time step (2.5 seconds per frame)
 
 // ============================================================================
 // Seeded Random Number Generator (LCG)
